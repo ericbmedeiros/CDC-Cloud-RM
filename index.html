@@ -223,17 +223,17 @@
       textKeywords: getKeywords(d.text)
     }));
 
-    const fuse = new Fuse(searchDocs, {
-      keys: [
-        { name: 'cleanTitle', weight: 0.6 },
-        { name: 'cleanPath', weight: 0.3 },
-        { name: 'cleanText', weight: 0.1 }
-      ],
-      threshold: 0.35,
-      distance: 100,
-      ignoreLocation: true,
-      minMatchCharLength: 1
-    });
+    // Configuração do Fuse.js otimizada para precisão de erros do RM
+const fuse = new Fuse(DOCS, {
+  keys: [
+    { name: 'title', weight: 0.7 },
+    { name: 'content', weight: 0.3 }
+  ],
+  threshold: 0.3,         // Reduzido de 0.6 para 0.3 (exige mais precisao, evitando resultados aleatorios)
+  ignoreLocation: true,    // Procura o termo em qualquer lugar do texto
+  minMatchCharLength: 4,   // Ignora termos com menos de 4 letras na busca por palavras
+  useExtendedSearch: true
+});
 
     function getScore(d, rawQuery) {
       if (!rawQuery) return 0;
@@ -367,26 +367,51 @@
     }
 
     async function processarImagemOCR(imageSource) {
-      ocrStatus.style.display = "block";
-      ocrStatus.textContent = "Processando imagem do erro via OCR...";
-      try {
-        const worker = await Tesseract.createWorker('por');
-        const ret = await worker.recognize(imageSource);
-        await worker.terminate();
+  ocrStatus.style.display = "block";
+  ocrStatus.textContent = "Processando imagem do erro via OCR...";
 
-        const textoLido = ret.data.text.replace(/\n+/g, " ").trim();
-        if (textoLido.length > 0) {
-          q.value = textoLido;
-          render();
-          ocrStatus.textContent = "Texto extraído da imagem e aplicado na busca!";
-        } else {
-          ocrStatus.textContent = "Nenhum texto legível foi encontrado na imagem.";
-        }
-      } catch (err) {
-        ocrStatus.textContent = "Erro ao processar imagem de erro.";
-      }
-      setTimeout(() => { ocrStatus.style.display = "none"; }, 4000);
+  try {
+    const worker = await Tesseract.createWorker('por');
+    const ret = await worker.recognize(imageSource);
+    await worker.terminate();
+
+    let rawText = ret.data.text || "";
+
+    // Lista de palavras comuns e ruidos para ignorar
+    const stopWords = [
+      'nao', 'foi', 'possivel', 'there', 'was', 'no', 'at', 'de', 'para', 'com', 'por', 
+      'uma', 'um', 'que', 'dos', 'das', 'como', 'sem', 'mais', 'ha', 'este', 'esta'
+    ];
+
+    // Limpeza de caracteres estranhos e quebras de linha
+    let cleanText = rawText
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÍÏÓÔÕÖÚ\s.:_-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Filtra apenas palavras relevantes com 4 ou mais letras
+    const palavrasRelevantes = cleanText.split(' ').filter(word => {
+      const wClean = word.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return wClean.length >= 4 && !stopWords.includes(wClean);
+    });
+
+    const textoLido = palavrasRelevantes.join(' ');
+
+    if (textoLido.length > 0) {
+      q.value = textoLido;
+      render();
+      ocrStatus.textContent = "Texto extraído da imagem e aplicado na busca!";
+    } else {
+      ocrStatus.textContent = "Nenhum texto legível relevante foi encontrado na imagem.";
     }
+  } catch (err) {
+    console.error(err);
+    ocrStatus.textContent = "Erro ao processar imagem de erro.";
+  }
+
+  setTimeout(() => { ocrStatus.style.display = "none"; }, 4000);
+}
 
     fileInput.addEventListener('change', (e) => {
       if (e.target.files && e.target.files[0]) {

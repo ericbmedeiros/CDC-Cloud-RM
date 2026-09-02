@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Central de Conhecimento — Cloud RM</title>
+  <style>
+    :root {
+      --bg: #0b0f19; --card: #121a2a; --muted: #9aa7bd; --text: #e8eefc;
+      --accent: #5aa7ff; --highlight: #ffe066; --border: rgba(255,255,255,.08);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+    header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); background: rgba(11,15,25,.85); border-bottom: 1px solid var(--border); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .top { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .brand { font-weight: 700; font-size: 18px; }
+    .pill { padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 12px; }
+    .searchRow { display: flex; gap: 10px; margin-top: 12px; }
+    input[type="search"] { flex: 1; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; outline: none; font-size: 15px; }
+    main { padding: 18px 0 40px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .card h3 { margin: 0 0 8px; font-size: 16px; }
+    .card a { color: var(--accent); text-decoration: none; }
+    .card a:hover { text-decoration: underline; }
+    .snippet { color: var(--muted); font-size: 13px; line-height: 1.4; margin-top: 8px; max-height: 120px; overflow: hidden; }
+    mark { background: rgba(255, 224, 102, 0.25); color: var(--highlight); padding: 0 2px; border-radius: 2px; }
+    .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
+    .kbd { border: 1px solid var(--border); background: rgba(255,255,255,.04); padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">Central de Conhecimento — GERAL (Cloud RM)</div>
+      <div class="pill">Busca em Conteúdo Completo</div>
+      <div class="pill">Atalho: <span class="kbd">Ctrl</span> + <span class="kbd">K</span></div>
+    </div>
+    <div class="searchRow">
+      <input id="q" type="search" placeholder="Buscar por erro, banco de dados, parâmetro, roteiro…" autocomplete="off" />
+    </div>
+    <div class="count" id="count">Carregando índice...</div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="grid" id="grid"></div>
+  </div>
+</main>
+
+<script src="./docs.js"></script>
+
+<script>
+  const DOCS = (typeof DATA !== 'undefined' && DATA.docs) ? DATA.docs : [];
+  const grid = document.getElementById('grid');
+  const q = document.getElementById('q');
+  const count = document.getElementById('count');
+
+  function normalize(s) {
+    return (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  }
+
+  function getSnippet(text, query) {
+    if (!text) return '';
+    if (!query) return text.substring(0, 160) + '...';
+    
+    const normText = normalize(text);
+    const normQuery = normalize(query).split(/\s+/)[0];
+    const index = normText.indexOf(normQuery);
+
+    if (index === -1) return text.substring(0, 160) + '...';
+    
+    const start = Math.max(0, index - 60);
+    const end = Math.min(text.length, index + 100);
+    let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+
+    const reg = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return snippet.replace(reg, '<mark>$1</mark>');
+  }
+
+  // Algoritmo de Pontuação por Relevância
+  function calculateScore(doc, query) {
+    if (!query) return 1;
+    
+    const terms = normalize(query).split(/\s+/).filter(Boolean);
+    const normTitle = normalize(doc.title);
+    const normText = normalize(doc.text);
+    
+    let score = 0;
+
+    for (const term of terms) {
+      // Correspondência no Título (Peso muito alto)
+      if (normTitle === term) score += 100;
+      else if (normTitle.includes(term)) score += 40;
+
+      // Correspondência no Conteúdo do texto (Peso moderado com limite de frequência)
+      if (normText.includes(term)) {
+        const matches = (normText.match(new RegExp(term, 'g')) || []).length;
+        score += Math.min(matches * 2, 15);
+      }
+    }
+    return score;
+  }
+
+  function render() {
+    const query = q.value.trim();
+
+    // Filtra e ordena pelos itens mais relevantes primeiro
+    const filtered = DOCS
+      .map(d => ({ ...d, _score: calculateScore(d, query) }))
+      .filter(d => query ? d._score > 0 : true)
+      .sort((a, b) => b._score - a._score || a.title.localeCompare(b.title));
+
+    grid.innerHTML = filtered.map(d => `
+      <div class="card">
+        <h3><a href="${d.url || '#'}" target="_blank" rel="noopener">${d.title}</a></h3>
+        <div class="snippet">${getSnippet(d.text, query)}</div>
+      </div>
+    `).join('');
+
+    count.textContent = `${filtered.length} resultado(s) encontrado(s)`;
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      q.focus();
+    }
+  });
+
+  q.addEventListener('input', render);
+  
+  count.textContent = `${DOCS.length} documentações carregadas.`;
+  render();
+</script>
+</body>
+</html>

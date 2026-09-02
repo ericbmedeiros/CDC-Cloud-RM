@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Central de Conhecimento - Suporte Cloud (RM)</title>
+  <style>
+    :root {
+      --bg: #0b0f19; --card: #121a2a; --muted: #9aa7bd; --text: #e8eefc;
+      --accent: #5aa7ff; --highlight: #ffffff; --border: rgba(255,255,255,.08);
+      --breadcrumb-green: #20c997;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+    header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); background: rgba(11,15,25,.85); border-bottom: 1px solid var(--border); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .top { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .brand { font-weight: 700; font-size: 18px; }
+    
+    .actions-top { display: flex; gap: 8px; align-items: center; }
+
+    .btn-action {
+      background: #1a263d;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .btn-action:hover { background: #223250; border-color: rgba(90, 167, 255, 0.4); }
+
+    .searchRow { display: flex; gap: 10px; margin-top: 12px; align-items: center; }
+    input[type="search"] { flex: 1; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; outline: none; font-size: 15px; }
+    
+    #fileInput { display: none; }
+
+    main { padding: 18px 0 40px; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    
+    .card { 
+      background: var(--card); 
+      border: 1px solid var(--border); 
+      border-radius: 14px; 
+      padding: 20px 24px; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 4px; 
+      transition: border-color 0.2s ease;
+    }
+    .card:hover { border-color: rgba(90, 167, 255, 0.4); }
+    
+    .path-parent { 
+      color: var(--breadcrumb-green); 
+      font-size: 12px; 
+      font-weight: 600; 
+      text-transform: uppercase; 
+      letter-spacing: 0.5px;
+      word-break: break-word;
+    }
+    
+    .card h3 { margin: 2px 0 0; font-size: 18px; }
+    .card h3 a { color: var(--accent); text-decoration: none; }
+    .card h3 a:hover { opacity: 0.85; }
+    
+    .snippet { 
+      color: var(--muted); 
+      font-size: 14px; 
+      line-height: 1.5; 
+      margin-top: 6px; 
+      white-space: pre-wrap; 
+      word-break: break-word;
+    }
+
+    mark { background: transparent; color: var(--highlight); font-weight: normal; padding: 0; }
+    .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
+    .ocr-status { color: var(--breadcrumb-green); font-size: 13px; margin-top: 6px; font-weight: 500; display: none; }
+
+    /* Modal de Sugestoes */
+    .modal-backdrop {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    .modal-box {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px; width: 100%; max-width: 500px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 14px;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h3 { margin: 0; font-size: 18px; color: var(--text); }
+    .modal-close { background: transparent; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+    .modal-body label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; font-weight: 600; }
+    .modal-body select, .modal-body input[type="text"], .modal-body textarea {
+      width: 100%; background: #0b0f19; color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px; font-size: 14px; outline: none; margin-bottom: 12px;
+    }
+    .modal-body textarea { height: 100px; resize: vertical; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+    .btn-submit { background: var(--accent); color: #000; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+    .btn-cancel { background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 10px 18px; border-radius: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">Central de Conhecimento - Suporte Cloud (RM)</div>
+      <div class="actions-top">
+        <button class="btn-action" onclick="abrirModalFeedback()">💡 Sugestões / Correções</button>
+      </div>
+    </div>
+    <div class="searchRow">
+      <input id="q" type="search" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
+      <button class="btn-action" onclick="document.getElementById('fileInput').click()">
+        📷 Anexar Print
+      </button>
+      <input type="file" id="fileInput" accept="image/*" />
+    </div>
+    <div class="ocr-status" id="ocrStatus">Processando imagem e lendo texto do erro...</div>
+    <div class="count" id="count">Carregando índice...</div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="grid" id="grid"></div>
+  </div>
+</main>
+
+<!-- Modal de Feedback -->
+<div class="modal-backdrop" id="modalFeedback">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Sugestão ou Correção de Documentação</h3>
+      <button class="modal-close" onclick="fecharModalFeedback()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label for="fbTipo">Tipo de Envio</label>
+      <select id="fbTipo">
+        <option value="Sugestão de Melhoria">Sugestão de Melhoria</option>
+        <option value="Correção de Documentação">Correção de Documentação</option>
+      </select>
+
+      <label for="fbDoc">Documentação Relacionada (Opcional)</label>
+      <input type="text" id="fbDoc" placeholder="Ex: LAUNCHER (RM.exe) ou URL no Notion" />
+
+      <label for="fbDetalhes">Detalhamento</label>
+      <textarea id="fbDetalhes" placeholder="Descreva aqui o que precisa ser ajustado ou adicionado..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="fecharModalFeedback()">Cancelar</button>
+      <button class="btn-submit" id="btnEnviarFb" onclick="enviarFeedback()">Enviar Feedback</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="./docs.js"></script>
+
+<script>
+  const SENHA_CORRETA = "redondo"; 
+  // Cole abaixo a URL gerada no Google Apps Script / Power Automate
+  const WEBHOOK_URL = "URL_DO_SEU_WEBHOOK_AQUI"; 
+
+  function autenticar() {
+    const acessoSalvo = sessionStorage.getItem("acesso_central_cloud");
+    if (acessoSalvo === SENHA_CORRETA) return true;
+
+    const senhaDigitada = prompt("Central de Conhecimento - Suporte Cloud (RM)\n\nPor favor, digite a senha de acesso:");
+    if (senhaDigitada === SENHA_CORRETA) {
+      sessionStorage.setItem("acesso_central_cloud", SENHA_CORRETA);
+      return true;
+    } else {
+      alert("Senha incorreta! Acesso negado.");
+      document.body.innerHTML = "<h2 style='color:white; text-align:center; margin-top:50px;'>Acesso negado. Recarregue a página para tentar novamente.</h2>";
+      return false;
+    }
+  }
+
+  if (autenticar()) {
+    const DOCS = (typeof DATA !== 'undefined' && DATA.docs) ? DATA.docs : [];
+    const grid = document.getElementById('grid');
+    const q = document.getElementById('q');
+    const count = document.getElementById('count');
+    const fileInput = document.getElementById('fileInput');
+    const ocrStatus = document.getElementById('ocrStatus');
+
+    const STOP_WORDS = new Set(["de", "da", "do", "das", "dos", "ao", "aos", "em", "no", "na", "nos", "nas", "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se"]);
+
+    function cleanText(s) {
+      if (!s) return '';
+      return s
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9 ]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function getKeywords(text) {
+      const clean = cleanText(text);
+      return clean
+        .split(' ')
+        .filter(w => w.length > 0 && !STOP_WORDS.has(w));
+    }
+
+    const searchDocs = DOCS.map(d => ({
+      ...d,
+      cleanTitle: cleanText(d.title),
+      cleanText: cleanText(d.text),
+      cleanPath: cleanText(d.path || d.title),
+      titleKeywords: getKeywords(d.title),
+      textKeywords: getKeywords(d.text)
+    }));
+
+    const fuse = new Fuse(searchDocs, {
+      keys: [
+        { name: 'cleanTitle', weight: 0.6 },
+        { name: 'cleanPath', weight: 0.3 },
+        { name: 'cleanText', weight: 0.1 }
+      ],
+      threshold: 0.35,
+      distance: 100,
+      ignoreLocation: true,
+      minMatchCharLength: 1
+    });
+
+    function getScore(d, rawQuery) {
+      if (!rawQuery) return 0;
+      const cleanQ = cleanText(rawQuery);
+      const queryWords = getKeywords(rawQuery);
+      if (queryWords.length === 0) return 0;
+
+      let score = 0;
+
+      if (cleanQ.length > 2 && d.cleanText.includes(cleanQ)) {
+        score += 1500;
+      }
+
+      const isRM = queryWords.includes("rm");
+      const isStartIntent = queryWords.some(w => ["iniciar", "abrir", "acessar", "entrar", "start", "executar", "launcher"].includes(w));
+      if (isRM && isStartIntent && d.cleanTitle.includes("launcher")) {
+        score += 800;
+      }
+
+      const isJobIntent = queryWords.some(w => ["fila", "processo", "processos", "agendamento", "travada", "travado", "lenta", "relatorio"].includes(w));
+      if (isJobIntent && (d.cleanTitle.includes("jobs") || d.cleanTitle.includes("cockpit") || d.cleanPath.includes("jobs"))) {
+        score += 600;
+      }
+
+      if (d.cleanTitle === cleanQ) score += 1000;
+      else if (d.cleanTitle.includes(cleanQ)) score += 300;
+      if (d.cleanPath.includes(cleanQ)) score += 150;
+
+      let matchedKeywords = 0;
+      for (const word of queryWords) {
+        if (d.titleKeywords.includes(word)) {
+          score += 120;
+          matchedKeywords++;
+        } else if (d.cleanPath.includes(word)) {
+          score += 60;
+          matchedKeywords++;
+        } else if (d.cleanText.includes(word)) {
+          score += 20;
+          matchedKeywords++;
+        }
+      }
+
+      if (matchedKeywords >= queryWords.length && queryWords.length > 1) {
+        score += 200;
+      }
+
+      return score;
+    }
+
+    function getParentPathOnly(doc) {
+      const fullPath = doc.path || doc.title || '';
+      const parts = fullPath.split(' > ');
+
+      if (parts.length <= 1) return ''; 
+      
+      parts.pop(); 
+      return parts.join(' > ');
+    }
+
+    function getSnippet(text, rawQuery) {
+      if (!text) return '';
+      if (!rawQuery) return text.substring(0, 300) + (text.length > 300 ? '...' : '');
+
+      const cleanT = cleanText(text);
+      const cleanQ = cleanText(rawQuery);
+      
+      const queryWords = rawQuery.trim().split(/[\s,.;:!?…'"]+/).filter(w => w.length > 0 && !STOP_WORDS.has(cleanText(w)));
+
+      let index = -1;
+      if (cleanQ.length > 2) {
+        index = cleanT.indexOf(cleanQ);
+      }
+
+      if (index === -1 && queryWords.length > 0) {
+        for (const w of queryWords) {
+          index = cleanT.indexOf(cleanText(w));
+          if (index !== -1) break;
+        }
+      }
+
+      if (index === -1) return text.substring(0, 300) + (text.length > 300 ? '...' : '');
+      
+      const start = Math.max(0, index - 80);
+      const end = Math.min(text.length, index + 320);
+      let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+
+      if (queryWords.length > 0) {
+        const pattern = new RegExp(`(${queryWords.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+        snippet = snippet.replace(pattern, '<mark>$1</mark>');
+      }
+
+      return snippet;
+    }
+
+    function render() {
+      const rawQuery = q.value.trim();
+
+      let results = [];
+
+      if (!rawQuery) {
+        results = searchDocs;
+      } else {
+        const scoredDocs = searchDocs.map(d => ({
+          ...d,
+          _score: getScore(d, rawQuery)
+        }));
+
+        const directMatches = scoredDocs
+          .filter(d => d._score > 0)
+          .sort((a, b) => b._score - a._score);
+
+        const fuseMatches = fuse.search(rawQuery)
+          .map(r => r.item)
+          .filter(d => !directMatches.some(dm => dm.id === d.id));
+
+        results = [...directMatches, ...fuseMatches];
+      }
+
+      grid.innerHTML = results.map(d => {
+        const parentPath = getParentPathOnly(d);
+        return `
+          <div class="card">
+            ${parentPath ? `<div class="path-parent">${parentPath}</div>` : ''}
+            <h3><a href="${d.url || '#'}" target="_blank" rel="noopener">${d.title}</a></h3>
+            <div class="snippet">${getSnippet(d.text, rawQuery)}</div>
+          </div>
+        `;
+      }).join('');
+
+      count.textContent = `${results.length} resultado(s) encontrado(s)`;
+    }
+
+    async function processarImagemOCR(imageSource) {
+      ocrStatus.style.display = "block";
+      ocrStatus.textContent = "Processando imagem do erro via OCR...";
+      try {
+        const worker = await Tesseract.createWorker('por');
+        const ret = await worker.recognize(imageSource);
+        await worker.terminate();
+
+        const textoLido = ret.data.text.replace(/\n+/g, " ").trim();
+        if (textoLido.length > 0) {
+          q.value = textoLido;
+          render();
+          ocrStatus.textContent = "Texto extraído da imagem e aplicado na busca!";
+        } else {
+          ocrStatus.textContent = "Nenhum texto legível foi encontrado na imagem.";
+        }
+      } catch (err) {
+        ocrStatus.textContent = "Erro ao processar imagem de erro.";
+      }
+      setTimeout(() => { ocrStatus.style.display = "none"; }, 4000);
+    }
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        processarImagemOCR(e.target.files[0]);
+      }
+    });
+
+    document.addEventListener('paste', (e) => {
+      const modalVisivel = document.getElementById('modalFeedback').style.display === 'flex';
+      if (!modalVisivel) {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (const item of items) {
+          if (item.type.indexOf("image") === 0) {
+            const blob = item.getAsFile();
+            processarImagemOCR(blob);
+            break;
+          }
+        }
+      }
+    });
+
+    q.addEventListener('input', render);
+    count.textContent = `${DOCS.length} documentações carregadas.`;
+    render();
+  }
+
+  function abrirModalFeedback() {
+    document.getElementById('modalFeedback').style.display = 'flex';
+  }
+
+  function fecharModalFeedback() {
+    document.getElementById('modalFeedback').style.display = 'none';
+    document.getElementById('fbDetalhes').value = '';
+    document.getElementById('fbDoc').value = '';
+  }
+
+  async function enviarFeedback() {
+    const tipo = document.getElementById('fbTipo').value;
+    const doc = document.getElementById('fbDoc').value.trim();
+    const detalhes = document.getElementById('fbDetalhes').value.trim();
+    const btnSubmit = document.getElementById('btnEnviarFb');
+
+    if (!detalhes) {
+      alert("Por favor, preencha o detalhamento da sugestão/correção.");
+      return;
+    }
+
+    // Certifique-se de que a URL nao possui trechos como /u/1/ ou /u/0/
+    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby4DpvREnIJFKpplUKwQjcyUrelvbtgobfiyQObfNG9dhL0ycaVFszjOh4--w4hev2h/exec";
+
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = "Enviando...";
+
+    const urlComParametros = `${WEBHOOK_URL}?tipo=${encodeURIComponent(tipo)}&doc=${encodeURIComponent(doc || 'Geral')}&detalhes=${encodeURIComponent(detalhes)}`;
+
+    try {
+      await fetch(urlComParametros, {
+        method: "GET",
+        mode: "no-cors",
+        credentials: "omit"
+      });
+
+      alert("Obrigado! Sua sugestão/correção foi registrada com sucesso na planilha.");
+      fecharModalFeedback();
+    } catch (err) {
+      alert("Erro ao enviar o feedback. Tente novamente.");
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = "Enviar Feedback";
+    }
+  }
+</script>
+</body>
+</html>

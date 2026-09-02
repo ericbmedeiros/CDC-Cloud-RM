@@ -1,0 +1,46 @@
+Contexto do Projeto: Central de Conhecimento — CDC - Suporte Cloud (RM)
+Objetivo do Projeto:
+
+Criar uma base de conhecimento privada, rápida e pesquisável para a equipe de suporte (CDC - Suporte Cloud (RM)).
+
+Origem dos dados: Páginas e subpáginas organizadas no Notion.
+
+Acesso da equipe: O painel lista soluções e atalhos com trechos expandidos. Ao clicar no título, o analista abre a página correspondente no navegador Notion via link web (não exige instalação do aplicativo Notion por parte dos analistas).
+
+Estrutura de Arquivos e Localização:
+
+Pasta local: C:\Users\eric.bordignon\Desktop\Projeto IA\
+
+fetch-notion.mjs: Script Node.js responsável por varrer a API do Notion via HTTPS de forma recursiva (incluindo subpáginas, blocos link_to_page, listas retráteis/toggles e menções em rich_text).
+
+docs.json / docs.js: Arquivos de banco de dados locais gerados pelo script Node.js.
+
+index.html: Interface visual (UI) do painel de busca.
+
+Configurações Atualizadas e Preferências Visuais:
+
+Título do Painel: Central de Conhecimento - Suporte Cloud (RM).
+
+Segurança e SEO: Proteção por senha integrada via JavaScript (SENHA_CORRETA = "redondo") utilizando localStorage do navegador para evitar solicitações repetidas no mesmo dispositivo; tag <meta name="robots" content="noindex, nofollow" /> para impedir indexação em motores de busca.
+
+Layout da UI:
+
+Modo escuro estilizado.
+
+Disposição dos cards em largura total (lista/feed vertical).
+
+Cabeçalho de Caminho: Apenas o caminho dos diretórios anteriores (getParentPathOnly) é exibido na linha superior em tom verde (#20c997), removendo a repetição do título final.
+
+Título clicável: Exibido logo abaixo em azul (#5aa7ff) sem sublinhado.
+
+Trechos (Snippets): Exibição ampliada para leitura direta das soluções.
+
+Highlights: Destaque de termos pesquisados em branco puro simples (#ffffff), sem peso em negrito ou fundo colorido.
+
+Pílulas redundantes (Ctrl+K e Busca Otimizada) foram removidas do topo.
+
+Algoritmo de Busca:
+
+Combinação de pontuação por pesos (título exato ganha +1000 pontos) + busca difusa (Fuse.js com threshold: 0.25).
+
+Normalização de texto sem acentos e sem hífens para ordenação por relevância estrita.

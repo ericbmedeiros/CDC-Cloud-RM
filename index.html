@@ -78,7 +78,7 @@
       word-break: break-word;
     }
 
-    mark { background: transparent; color: var(--highlight); font-weight: normal; padding: 0; }
+    mark { background: transparent; color: var(--highlight); font-weight: bold; padding: 0; }
     .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
     .ocr-status { color: var(--breadcrumb-green); font-size: 13px; margin-top: 6px; font-weight: 500; display: none; }
 
@@ -168,8 +168,6 @@
 
 <script>
   const SENHA_CORRETA = "redondo"; 
-  // Cole abaixo a URL gerada no Google Apps Script / Power Automate
-  const WEBHOOK_URL = "URL_DO_SEU_WEBHOOK_AQUI"; 
 
   function autenticar() {
     const acessoSalvo = sessionStorage.getItem("acesso_central_cloud");
@@ -194,7 +192,11 @@
     const fileInput = document.getElementById('fileInput');
     const ocrStatus = document.getElementById('ocrStatus');
 
-    const STOP_WORDS = new Set(["de", "da", "do", "das", "dos", "ao", "aos", "em", "no", "na", "nos", "nas", "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se"]);
+    const STOP_WORDS = new Set([
+      "de", "da", "do", "das", "dos", "ao", "aos", "em", "no", "na", "nos", "nas", 
+      "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "não", "foi", 
+      "possivel", "there", "was", "no", "at", "que", "ha", "este", "esta", "on", "the"
+    ]);
 
     function cleanText(s) {
       if (!s) return '';
@@ -211,7 +213,7 @@
       const clean = cleanText(text);
       return clean
         .split(' ')
-        .filter(w => w.length > 0 && !STOP_WORDS.has(w));
+        .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
     }
 
     const searchDocs = DOCS.map(d => ({
@@ -223,17 +225,17 @@
       textKeywords: getKeywords(d.text)
     }));
 
-    // Configuração do Fuse.js otimizada para precisão de erros do RM
-const fuse = new Fuse(DOCS, {
-  keys: [
-    { name: 'title', weight: 0.7 },
-    { name: 'content', weight: 0.3 }
-  ],
-  threshold: 0.3,         // Reduzido de 0.6 para 0.3 (exige mais precisao, evitando resultados aleatorios)
-  ignoreLocation: true,    // Procura o termo em qualquer lugar do texto
-  minMatchCharLength: 4,   // Ignora termos com menos de 4 letras na busca por palavras
-  useExtendedSearch: true
-});
+    // Configuração do Fuse.js restrita para evitar resultados aleatórios
+    const fuse = new Fuse(DOCS, {
+      keys: [
+        { name: 'title', weight: 0.7 },
+        { name: 'text', weight: 0.3 }
+      ],
+      threshold: 0.2,          // Exige alta precisão de busca
+      ignoreLocation: true,
+      minMatchCharLength: 3,
+      useExtendedSearch: true
+    });
 
     function getScore(d, rawQuery) {
       if (!rawQuery) return 0;
@@ -345,7 +347,11 @@ const fuse = new Fuse(DOCS, {
           .filter(d => d._score > 0)
           .sort((a, b) => b._score - a._score);
 
-        const fuseMatches = fuse.search(rawQuery)
+        // Filtra os termos para busca limpa no Fuse.js
+        const queryWords = getKeywords(rawQuery);
+        const cleanSearchQuery = queryWords.join(' ');
+
+        const fuseMatches = fuse.search(cleanSearchQuery || rawQuery)
           .map(r => r.item)
           .filter(d => !directMatches.some(dm => dm.id === d.id));
 
@@ -367,51 +373,45 @@ const fuse = new Fuse(DOCS, {
     }
 
     async function processarImagemOCR(imageSource) {
-  ocrStatus.style.display = "block";
-  ocrStatus.textContent = "Processando imagem do erro via OCR...";
+      ocrStatus.style.display = "block";
+      ocrStatus.textContent = "Processando imagem do erro via OCR...";
 
-  try {
-    const worker = await Tesseract.createWorker('por');
-    const ret = await worker.recognize(imageSource);
-    await worker.terminate();
+      try {
+        const worker = await Tesseract.createWorker('por');
+        const ret = await worker.recognize(imageSource);
+        await worker.terminate();
 
-    let rawText = ret.data.text || "";
+        let rawText = ret.data.text || "";
 
-    // Lista de palavras comuns e ruidos para ignorar
-    const stopWords = [
-      'nao', 'foi', 'possivel', 'there', 'was', 'no', 'at', 'de', 'para', 'com', 'por', 
-      'uma', 'um', 'que', 'dos', 'das', 'como', 'sem', 'mais', 'ha', 'este', 'esta'
-    ];
+        // Limpeza do texto extraído pelo OCR
+        let cleanTextStr = rawText
+          .replace(/[\r\n]+/g, ' ')
+          .replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÍÏÓÔÕÖÚ\s.:_-]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
 
-    // Limpeza de caracteres estranhos e quebras de linha
-    let cleanText = rawText
-      .replace(/[\r\n]+/g, ' ')
-      .replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÍÏÓÔÕÖÚ\s.:_-]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+        // Filtra apenas termos significativos com 3 ou mais letras
+        const palavrasRelevantes = cleanTextStr.split(' ').filter(word => {
+          const wClean = cleanText(word);
+          return wClean.length >= 3 && !STOP_WORDS.has(wClean);
+        });
 
-    // Filtra apenas palavras relevantes com 4 ou mais letras
-    const palavrasRelevantes = cleanText.split(' ').filter(word => {
-      const wClean = word.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return wClean.length >= 4 && !stopWords.includes(wClean);
-    });
+        const textoLido = palavrasRelevantes.join(' ');
 
-    const textoLido = palavrasRelevantes.join(' ');
+        if (textoLido.length > 0) {
+          q.value = textoLido;
+          render();
+          ocrStatus.textContent = "Texto extraído da imagem e aplicado na busca!";
+        } else {
+          ocrStatus.textContent = "Nenhum texto legível relevante foi encontrado na imagem.";
+        }
+      } catch (err) {
+        console.error(err);
+        ocrStatus.textContent = "Erro ao processar imagem de erro.";
+      }
 
-    if (textoLido.length > 0) {
-      q.value = textoLido;
-      render();
-      ocrStatus.textContent = "Texto extraído da imagem e aplicado na busca!";
-    } else {
-      ocrStatus.textContent = "Nenhum texto legível relevante foi encontrado na imagem.";
+      setTimeout(() => { ocrStatus.style.display = "none"; }, 4000);
     }
-  } catch (err) {
-    console.error(err);
-    ocrStatus.textContent = "Erro ao processar imagem de erro.";
-  }
-
-  setTimeout(() => { ocrStatus.style.display = "none"; }, 4000);
-}
 
     fileInput.addEventListener('change', (e) => {
       if (e.target.files && e.target.files[0]) {
@@ -459,7 +459,6 @@ const fuse = new Fuse(DOCS, {
       return;
     }
 
-    // Certifique-se de que a URL nao possui trechos como /u/1/ ou /u/0/
     const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby4DpvREnIJFKpplUKwQjcyUrelvbtgobfiyQObfNG9dhL0ycaVFszjOh4--w4hev2h/exec";
 
     btnSubmit.disabled = true;

@@ -1,6 +1,6 @@
 const DATA = {
-  "generatedAt": "2026-09-04T22:41:14.741Z",
-  "count": 103,
+  "generatedAt": "2026-09-04T22:56:54.448Z",
+  "count": 108,
   "docs": [
     {
       "id": "70cbd542-9ec3-8371-a96d-81e62c92929d",
@@ -651,7 +651,21 @@ const DATA = {
       "title": "Folha de Pagamento (LABORE)",
       "path": "SUPORTE > TDNs > Folha de Pagamento (LABORE)",
       "url": "https://app.notion.com/p/Folha-de-Pagamento-LABORE-3cfbd5429ec380d2a5c5eed32737488b",
-      "text": "Folha de Pagamento (LABORE) https://centraldeatendimento.totvs.com/hc/pt-br/sections/206984748-Folha-de-Pagamento-LABORE FOLHA CÁLCULO Grupo Zendesk: RM Folha Cálculo Grupo Chat: RM Folha Cálculo Resumo das principais demandas atendidas: Processos relacionados ao Cálculo de Folha Mensal (Lançamento da Folha, Recalculo, Diferença Salarial e Retificação) - Processos relacionados a Folha Educacional (Reprogramação Salarial, Agrupamento Salarial, Associação de Tabelas Salariais e Associação de Eventos) - Processos relacionados ao 13° Salário (Parametrização, Cálculo, Diferença e Retificação) - Processos de Férias (Cadastro, cálculo, lançamento, diferença e finalização) - Processos de Rescisão (Cálculo de rescisão e complementar, cancelar e geração de relatórios de rescisão) - Orçamento de Folha de Pagamento (Beta) FOLHA ROTINAS Grupo Zendesk: RM Folha Rotinas Grupo Chat: RM Folha Rotinas Resumo das principais demandas atendidas: Cadastro de funcionários, eventos, formulas, sindicatos, seções, chefes e supervisores, todos os tipos de cadastros; Alterações globais de salário e de dados cadastrais do funcionário; Geração de encargos: Histórico de Provisões de férias e 13º Salário, Contabilização (integração Folha - Labore e Gestão Contábil - Saldus); Rotinas Anuais: RAIS e DIRF; RM Reports: Relatórios padrão do Book da Folha de Pagamento RM, relatórios customizados devem ser avaliados com a equipe BI; Importações: Importação de dados da folha de pagamento e funcionários e seus respectivos leiautes de importação; Envio de e-mails para funcionários; Gerador de Saídas: Layouts bancários e exportação de dados do Book da Folha de Pagamento e funcionários; Integração da Folha de Pagamento com Gestão Financeira (Fluxus); Guia de INSS e SEFIP (Tomador de Serviços); Lançamento Financeiro INSS (DCTFWeb) e FGTS Digital; RH - RM - FOP - Como desabilitar chapa automática RH - RM - FOP - Como fazer reintegração de funcionário RH - RM - FOP - eSocial - O evento com código XX ou YYY deve conter eventos associados no De/Para (Antecipação de Férias), com natureza da rubrica igual a XXXX, incidência de IRRF igual a XX e demais incidências iguais a. RH - RM - FOP - Exclusão de função duplicada vinculada a funcionário RH - RM - FOP - Layouts de Pagamento Eletrônico CNAB 240 Posições Disponíveis no Folha de Pagamento RH - RM - SMT - Relatório PPP Erro: Não foi encontrado nenhum registro de seção, função ou alocação externa Administração de Pessoal Ambiente Anuais Assinatura Eletrônica Avisos Automáticos Configurações Encargos esocial - Atualização Status Integração eSocial - Cadastros eSocial - Eventos Totalizadores eSocial - Gerar XML/ Integração Evento eSocial - Middleware eSocial - Parametrizador esocial - Periódicos esocial - Processos eSocial - Relatórios eSocial - Saneamento de Dados esocial - Smart eSocial eSocial - Tabelas/Não Periódicos Férias Folha Agrária Folha Educacional Folha Mensal Funcionários Genéricos Gestão Históricos Integrações - Ahgora Integrações - Conceito e WebService Integrações - Feedz Integrações Outros BackOffice Orçamento (Beta) Portal Rescisão Segurança"
+      "text": "Folha de Pagamento (LABORE) https://centraldeatendimento.totvs.com/hc/pt-br/sections/206984748-Folha-de-Pagamento-LABORE RH - RM - FOP - Como desabilitar chapa automática RH - RM - FOP - Como fazer reintegração de funcionário RH - RM - FOP - eSocial - O evento com código XX ou YYY deve conter eventos associados no De/Para (Antecipação de Férias), com natureza da rubrica igual a XXXX, incidência de IRRF igual a XX e demais incidências iguais a. RH - RM - FOP - Exclusão de função duplicada vinculada a funcionário RH - RM - FOP - Layouts de Pagamento Eletrônico CNAB 240 Posições Disponíveis no Folha de Pagamento RH - RM - SMT - Relatório PPP Erro: Não foi encontrado nenhum registro de seção, função ou alocação externa Administração de Pessoal Ambiente Anuais Assinatura Eletrônica Avisos Automáticos Configurações Encargos esocial - Atualização Status Integração eSocial - Cadastros eSocial - Eventos Totalizadores eSocial - Gerar XML/ Integração Evento eSocial - Middleware eSocial - Parametrizador esocial - Periódicos esocial - Processos eSocial - Relatórios eSocial - Saneamento de Dados esocial - Smart eSocial eSocial - Tabelas/Não Periódicos Férias Folha Agrária Folha Educacional Folha Mensal Funcionários Genéricos Gestão Históricos Integrações - Ahgora Integrações - Conceito e WebService Integrações - Feedz Integrações Outros BackOffice Orçamento (Beta) Portal Rescisão Segurança"
+    },
+    {
+      "id": "3d1bd542-9ec3-8093-a32b-e977f1fc7c77",
+      "title": "FOLHA ROTINAS",
+      "path": "SUPORTE > TDNs > Folha de Pagamento (LABORE) > FOLHA ROTINAS",
+      "url": "https://app.notion.com/p/FOLHA-ROTINAS-3d1bd5429ec38093a32be977f1fc7c77",
+      "text": "FOLHA ROTINAS Grupo Zendesk: RM Folha Rotinas Grupo Chat: RM Folha Rotinas Resumo das principais demandas atendidas: Cadastro de funcionários, eventos, formulas, sindicatos, seções, chefes e supervisores, todos os tipos de cadastros; Alterações globais de salário e de dados cadastrais do funcionário; Geração de encargos: Histórico de Provisões de férias e 13º Salário, Contabilização (integração Folha - Labore e Gestão Contábil - Saldus); Rotinas Anuais: RAIS e DIRF; RM Reports: Relatórios padrão do Book da Folha de Pagamento RM, relatórios customizados devem ser avaliados com a equipe BI; Importações: Importação de dados da folha de pagamento e funcionários e seus respectivos leiautes de importação; Envio de e-mails para funcionários; Gerador de Saídas: Layouts bancários e exportação de dados do Book da Folha de Pagamento e funcionários; Integração da Folha de Pagamento com Gestão Financeira (Fluxus); Guia de INSS e SEFIP (Tomador de Serviços); Lançamento Financeiro INSS (DCTFWeb) e FGTS Digital;"
+    },
+    {
+      "id": "3d1bd542-9ec3-8007-ad3b-dec339b8afac",
+      "title": "FOLHA CÁLCULO",
+      "path": "SUPORTE > TDNs > Folha de Pagamento (LABORE) > FOLHA CÁLCULO",
+      "url": "https://app.notion.com/p/FOLHA-C-LCULO-3d1bd5429ec38007ad3bdec339b8afac",
+      "text": "FOLHA CÁLCULO Grupo Zendesk: RM Folha Cálculo Grupo Chat: RM Folha Cálculo Resumo das principais demandas atendidas: Processos relacionados ao Cálculo de Folha Mensal (Lançamento da Folha, Recalculo, Diferença Salarial e Retificação) Processos relacionados a Folha Educacional (Reprogramação Salarial, Agrupamento Salarial, Associação de Tabelas Salariais e Associação de Eventos) Processos relacionados ao 13° Salário (Parametrização, Cálculo, Diferença e Retificação) Processos de Férias (Cadastro, cálculo, lançamento, diferença e finalização) Processos de Rescisão (Cálculo de rescisão e complementar, cancelar e geração de relatórios de rescisão) - Orçamento de Folha de Pagamento (Beta)"
     },
     {
       "id": "3cfbd542-9ec3-806c-a965-f4f6911949e5",
@@ -715,6 +729,27 @@ const DATA = {
       "path": "SUPORTE > TDNs > Hospitais & Clinicas",
       "url": "https://app.notion.com/p/Hospitais-Clinicas-3d1bd5429ec3809a95eed7634879add9",
       "text": "Hospitais & Clinicas"
+    },
+    {
+      "id": "3d1bd542-9ec3-800f-8788-c484eab1b476",
+      "title": "eSocial",
+      "path": "SUPORTE > TDNs > eSocial",
+      "url": "https://app.notion.com/p/eSocial-3d1bd5429ec3800f8788c484eab1b476",
+      "text": "eSocial Grupo Zendesk: RM eSocial Grupo Chat: RM eSocial Resumo das principais demandas atendidas: eSocial Linha RM: tratamento de informações do eSocial relacionadas ao TOTVS Folha de Pagamento. Dados do eSocial referentes à SST/SSO são tratados pelo time Gestão de RH. Envio de eventos de Folha de Pagamento para o governo: S-2200, S-1200, entre outros iniciados com S- (com exceção do S-2210, S-2220 e S-2240, tratados pelo time Gestão de Pessoas & SSO). Relatório de Conferência de INSS e FGTS: validação de dados e orientações de dúvidas de configurações e diferença de valores do relatório apresentado no RM. Relatório de INSS e FGTS gerado dentro do TAF deverá ser avaliado pelo time TAF e-Social RM. Time Cloud é responsável por repassar ao cliente os dados dos Webservices (servidor e porta) para a configuração. Integração de dados com o TAF: dúvidas e erros apresentados dentro do RM; erros apresentados dentro do TAF devem ser avaliados com o time TAF e-Social RM. Geração de XML de informações da Folha de Pagamento. Middleware: Ativação, orientações de dúvidas e configurações."
+    },
+    {
+      "id": "3d1bd542-9ec3-80bb-b41d-c7831ad2df07",
+      "title": "RH Tech (Integrações RH e Meu RH) ",
+      "path": "SUPORTE > TDNs > RH Tech (Integrações RH e Meu RH) ",
+      "url": "https://app.notion.com/p/RH-Tech-Integra-es-RH-e-Meu-RH-3d1bd5429ec380bbb41dc7831ad2df07",
+      "text": "RH Tech (Integrações RH e Meu RH) Grupo Zendesk: RM RH Tech Grupo Chat: RM RH Tech Resumo das principais demandas atendidas: app Meu RH Portal RH (legado) -Rotinas relacionadas ao Folha de Pagamento, como férias, envelope e etc...; WebServer - DataServer -Suporte aos dataservers do RH. Integração do RH x: -Protheus; -Logix; -Moda; -Feedz; -Suricato; -Ahgora; -TAE - Assinatura eletrônica, especificamente nos relatórios voltados ao RH. -Avisos Automáticos"
+    },
+    {
+      "id": "3d1bd542-9ec3-8051-8056-c83a06d83e0c",
+      "title": "Hospitais & Clínicas",
+      "path": "SUPORTE > TDNs > Hospitais & Clínicas",
+      "url": "https://app.notion.com/p/Hospitais-Cl-nicas-3d1bd5429ec380518056c83a06d83e0c",
+      "text": "Hospitais & Clínicas Grupo Zendesk: RM Hospitais & Clínicas Grupo Chat: RM Hospitais & Clínicas Resumo das principais demandas atendidas: Registro de Atendimento Interno / Externos Classificação de risco / Triagem / Painel de eletivos Agendas (Atendimento) Exames Pedido de Exames Controle de Pedido de Exames Laboratório Diagnóstico por Imagem Portal de Resultados Online Integrações Lab/Imagem Leitos Controle de Documentos Matriz de Indicadores PEP 1 PEP RM Automatizador CIHA Farmácia Centro Cirúrgico Agenda Cirúrgica CIH (RM Janus) Mov Estoque Mapa de Dispensação Livro de medicamentos controlados Etiquetas de Código de Barras Cadastros Faturamento Condição Contratual Condição Financeira Controle de Glosa Recurso de Glosa Cadastro de Prestador Cadastro de Convênio Credenciamento Elaboração e Faturamento de AIH Elaboração de BPA Elaboração de APAC Relatórios de apuração do SUS ImportaSUS KIT BPA Elaboração de Contas Faturamentos de Contas Rotinas e Cadastros TISS Guias TISS Emissão de Faturas Faturamentos Eletrônico de Convênios Impressão de Contas hospitalares Mudança de categoria do paciente Extrato de Pagamento IPASGO/IPE/IPSEMG etc. Importação de Tabelas de MATMED Atualização de Valores Brasindice SIMPRO Folha de Pagamento de Prestador Folha de Produção Médica DMED Controle de Documentos Importação Internação e alta Importação Procedimento Invasivo Importação Antibiótico Importação Cultura final Importação Cultura Parcial Mov Leitos Laboratório Diagnóstico por Imagem Portal de Resultados Online Integrações Lab/Imagem Controle de Documentos"
     },
     {
       "id": "5c4bd542-9ec3-8341-a00e-01fafd5ac2a8",

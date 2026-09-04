@@ -71,19 +71,19 @@
     
     /* Balão de conteúdo expandido e rolável */
     .snippet { 
-      color: var(--muted); 
-      font-size: 14px; 
-      line-height: 1.6; 
-      margin-top: 10px; 
-      white-space: pre-wrap; 
-      word-break: break-word;
-      max-height: 400px;
-      overflow-y: auto;
-      background: rgba(0,0,0,0.25);
-      padding: 14px 16px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.06);
-    }
+  color: var(--muted); 
+  font-size: 14px; 
+  line-height: 1.6; 
+  margin-top: 10px; 
+  white-space: pre-wrap; 
+  word-break: break-word;
+  max-height: 800px;       /* Altura dobrada para exibir respostas completas */
+  overflow-y: auto;        /* Rolagem interna quando o texto ultrapassar a tela */
+  background: rgba(0,0,0,0.25);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
 
     /* Estilização da barra de rolagem do balão */
     .snippet::-webkit-scrollbar { width: 6px; }
@@ -360,10 +360,10 @@
         return text.substring(0, 500) + (text.length > 500 ? '...' : '');
       }
 
-      // Janela expandida de até 1000 caracteres ao redor do termo encontrado
-      const start = Math.max(0, matchIndex - 60);
-      const end = Math.min(text.length, matchIndex + 940);
-      let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+      // Janela ampliada para até 2000 caracteres ao redor do termo encontrado
+		const start = Math.max(0, matchIndex - 60);
+		const end = Math.min(text.length, matchIndex + 1940);
+		let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
 
       // Aplica o destaque azul nos termos
       const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];

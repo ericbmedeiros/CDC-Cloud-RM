@@ -76,18 +76,19 @@ async function getBlockContent(blockId) {
         const btype = block.type;
         if (block[btype]) {
           if (block[btype].rich_text && Array.isArray(block[btype].rich_text)) {
-            text += " " + block[btype].rich_text.map(t => t.plain_text).join("");
+            text += "\n" + block[btype].rich_text.map(t => t.plain_text).join("");
             subPageIds.push(...extractIdsFromRichText(block[btype].rich_text));
           }
           if (block[btype].title && Array.isArray(block[btype].title)) {
-            text += " " + block[btype].title.map(t => t.plain_text).join("");
+            text += "\n" + block[btype].title.map(t => t.plain_text).join("");
             subPageIds.push(...extractIdsFromRichText(block[btype].title));
           }
         }
 
+        // Entra recursivamente dentro dos Toggles e blocos com filhos
         if (block.has_children) {
           const inner = await getBlockContent(block.id);
-          text += " " + inner.text;
+          text += "\n" + inner.text;
           subPageIds.push(...inner.subPageIds);
         }
       }

@@ -70,17 +70,27 @@
     .card h3 a:hover { opacity: 0.85; }
     
     .snippet { 
-      color: var(--muted); 
-      font-size: 14px; 
-      line-height: 1.5; 
-      margin-top: 6px; 
-      white-space: pre-wrap; 
-      word-break: break-word;
-    }
+  color: var(--muted); 
+  font-size: 14px; 
+  line-height: 1.6; 
+  margin-top: 10px; 
+  white-space: pre-wrap; 
+  word-break: break-word;
+  max-height: 350px;       /* Aumenta a altura vertical do balão */
+  overflow-y: auto;        /* Adiciona barra de rolagem interna se o texto for maior */
+  background: rgba(0,0,0,0.2);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
 
-    mark { background: transparent; color: var(--highlight); font-weight: bold; padding: 0; }
-    .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
-    .ocr-status { color: var(--breadcrumb-green); font-size: 13px; margin-top: 6px; font-weight: 500; display: none; }
+mark { 
+  background: #1e3a5f; 
+  color: #5aa7ff; 
+  font-weight: bold; 
+  padding: 2px 4px; 
+  border-radius: 4px; 
+}
 
     /* Modal de Sugestoes */
     .modal-backdrop {
@@ -295,50 +305,70 @@
       return parts.join(' > ');
     }
 
-    function getSnippet(text, rawQuery) {
+   function getSnippet(text, rawQuery) {
   if (!text) return '';
-  if (!rawQuery) return text.substring(0, 300) + (text.length > 300 ? '...' : '');
-
-  // Normaliza o texto e a busca removendo acentos para localização exata
-  const normalizedText = cleanText(text);
-  const normalizedQuery = cleanText(rawQuery);
-
-  // Extrai palavras-chave individuais ignorando stopwords
-  const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
-
-  let matchIndex = -1;
-
-  // 1. Tenta encontrar a frase exata sem acentos
-  if (normalizedQuery.length > 2) {
-    matchIndex = normalizedText.indexOf(normalizedQuery);
+  
+  // Se não houver busca digitada, mostra os primeiros 500 caracteres
+  if (!rawQuery) {
+    return text.substring(0, 500) + (text.length > 500 ? '...' : '');
   }
 
-  // 2. Se não achar a frase inteira, procura a primeira palavra-chave relevante
-  if (matchIndex === -1 && queryWords.length > 0) {
-    for (const word of queryWords) {
-      matchIndex = normalizedText.indexOf(word);
-      if (matchIndex !== -1) break;
+  // Função para criar uma regex insensível a acentos e case
+  function makeAccentInsensitiveRegex(term) {
+    const accents = {
+      'a': '[aáàâãä]', 'e': '[eéèêë]', 'i': '[iíìîï]',
+      'o': '[oóòôõö]', 'u': '[uúùûü]', 'c': '[cç]'
+    };
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').toLowerCase();
+    const pattern = escaped.split('').map(char => accents[char] || char).join('');
+    return new RegExp(pattern, 'gi');
+  }
+
+  // Identifica os termos da busca
+  const cleanQ = cleanText(rawQuery);
+  const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+
+  let firstMatchIndex = -1;
+  let matchedWord = '';
+
+  // 1. Tenta achar a expressão inteira primeiro
+  if (cleanQ.length > 2) {
+    const regFrase = makeAccentInsensitiveRegex(cleanQ);
+    const match = regFrase.exec(text);
+    if (match) {
+      firstMatchIndex = match.index;
+      matchedWord = match[0];
     }
   }
 
-  // Se mesmo assim não encontrar no texto, exibe o início
-  if (matchIndex === -1) {
-    return text.substring(0, 300) + (text.length > 300 ? '...' : '');
+  // 2. Se não achou a frase inteira, procura a primeira palavra individual
+  if (firstMatchIndex === -1 && queryWords.length > 0) {
+    for (const word of queryWords) {
+      const regWord = makeAccentInsensitiveRegex(word);
+      const match = regWord.exec(text);
+      if (match) {
+        firstMatchIndex = match.index;
+        matchedWord = match[0];
+        break;
+      }
+    }
   }
 
-  // Define a janela de corte centralizando o termo encontrado
-  const start = Math.max(0, matchIndex - 60);
-  const end = Math.min(text.length, matchIndex + 340);
+  // Se não encontrou o termo no corpo do texto, exibe o início do texto
+  if (firstMatchIndex === -1) {
+    return text.substring(0, 500) + (text.length > 500 ? '...' : '');
+  }
+
+  // Define a janela de exibição expandida (até 800 caracteres em volta do termo)
+  const start = Math.max(0, firstMatchIndex - 80);
+  const end = Math.min(text.length, firstMatchIndex + 720);
   let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
 
-  // Aplica o highlight <mark> nos termos encontrados (ignorando case e acentos)
-  if (queryWords.length > 0) {
-    const escapedWords = queryWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    // Expressão regular que ignora acentos na comparação
-    const pattern = new RegExp(`(${escapedWords.join('|')})`, 'gi');
-    
-    // Substitui mantendo a palavra original em destaque
-    snippet = snippet.replace(pattern, '<mark>$1</mark>');
+  // Aplica o destaque azul nos termos encontrados
+  const allTerms = queryWords.length > 0 ? queryWords : [cleanQ];
+  for (const term of allTerms) {
+    const regHighlight = makeAccentInsensitiveRegex(term);
+    snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
   }
 
   return snippet;

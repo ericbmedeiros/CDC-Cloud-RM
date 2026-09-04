@@ -69,28 +69,37 @@
     .card h3 a { color: var(--accent); text-decoration: none; }
     .card h3 a:hover { opacity: 0.85; }
     
+    /* Balão de conteúdo expandido e rolável */
     .snippet { 
-  color: var(--muted); 
-  font-size: 14px; 
-  line-height: 1.6; 
-  margin-top: 10px; 
-  white-space: pre-wrap; 
-  word-break: break-word;
-  max-height: 350px;       /* Aumenta a altura vertical do balão */
-  overflow-y: auto;        /* Adiciona barra de rolagem interna se o texto for maior */
-  background: rgba(0,0,0,0.2);
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.05);
-}
+      color: var(--muted); 
+      font-size: 14px; 
+      line-height: 1.6; 
+      margin-top: 10px; 
+      white-space: pre-wrap; 
+      word-break: break-word;
+      max-height: 400px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.25);
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
 
-mark { 
-  background: #1e3a5f; 
-  color: #5aa7ff; 
-  font-weight: bold; 
-  padding: 2px 4px; 
-  border-radius: 4px; 
-}
+    /* Estilização da barra de rolagem do balão */
+    .snippet::-webkit-scrollbar { width: 6px; }
+    .snippet::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+    .snippet::-webkit-scrollbar-thumb { background: rgba(90, 167, 255, 0.3); border-radius: 4px; }
+
+    mark { 
+      background: #1e3a5f; 
+      color: #5aa7ff; 
+      font-weight: bold; 
+      padding: 2px 4px; 
+      border-radius: 4px; 
+    }
+
+    .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
+    .ocr-status { color: var(--breadcrumb-green); font-size: 13px; margin-top: 6px; font-weight: 500; display: none; }
 
     /* Modal de Sugestoes */
     .modal-backdrop {
@@ -235,13 +244,13 @@ mark {
       textKeywords: getKeywords(d.text)
     }));
 
-    // Configuração do Fuse.js restrita para evitar resultados aleatórios
-    const fuse = new Fuse(DOCS, {
+    // Configuração do Fuse.js associada corretamente à propriedade 'text'
+    const fuse = new Fuse(searchDocs, {
       keys: [
         { name: 'title', weight: 0.7 },
         { name: 'text', weight: 0.3 }
       ],
-      threshold: 0.2,          // Exige alta precisão de busca
+      threshold: 0.2,
       ignoreLocation: true,
       minMatchCharLength: 3,
       useExtendedSearch: true
@@ -305,74 +314,66 @@ mark {
       return parts.join(' > ');
     }
 
-   function getSnippet(text, rawQuery) {
-  if (!text) return '';
-  
-  // Se não houver busca digitada, mostra os primeiros 500 caracteres
-  if (!rawQuery) {
-    return text.substring(0, 500) + (text.length > 500 ? '...' : '');
-  }
-
-  // Função para criar uma regex insensível a acentos e case
-  function makeAccentInsensitiveRegex(term) {
-    const accents = {
-      'a': '[aáàâãä]', 'e': '[eéèêë]', 'i': '[iíìîï]',
-      'o': '[oóòôõö]', 'u': '[uúùûü]', 'c': '[cç]'
-    };
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').toLowerCase();
-    const pattern = escaped.split('').map(char => accents[char] || char).join('');
-    return new RegExp(pattern, 'gi');
-  }
-
-  // Identifica os termos da busca
-  const cleanQ = cleanText(rawQuery);
-  const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
-
-  let firstMatchIndex = -1;
-  let matchedWord = '';
-
-  // 1. Tenta achar a expressão inteira primeiro
-  if (cleanQ.length > 2) {
-    const regFrase = makeAccentInsensitiveRegex(cleanQ);
-    const match = regFrase.exec(text);
-    if (match) {
-      firstMatchIndex = match.index;
-      matchedWord = match[0];
+    // Gerador de Regex Insensível a Acentos
+    function buildAccentRegex(term) {
+      const charMap = {
+        'a': '[aáàâãä]', 'e': '[eéèêë]', 'i': '[iíìîï]',
+        'o': '[oóòôõö]', 'u': '[uúùûü]', 'c': '[cç]'
+      };
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').toLowerCase();
+      const pattern = escaped.split('').map(c => charMap[c] || c).join('');
+      return new RegExp(pattern, 'gi');
     }
-  }
 
-  // 2. Se não achou a frase inteira, procura a primeira palavra individual
-  if (firstMatchIndex === -1 && queryWords.length > 0) {
-    for (const word of queryWords) {
-      const regWord = makeAccentInsensitiveRegex(word);
-      const match = regWord.exec(text);
-      if (match) {
-        firstMatchIndex = match.index;
-        matchedWord = match[0];
-        break;
+    function getSnippet(text, rawQuery) {
+      if (!text) return '';
+      if (!rawQuery) return text.substring(0, 500) + (text.length > 500 ? '...' : '');
+
+      const cleanQ = cleanText(rawQuery);
+      const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+
+      let matchIndex = -1;
+
+      // 1. Tenta encontrar a frase inteira no texto original
+      if (cleanQ.length > 2) {
+        const regFrase = buildAccentRegex(cleanQ);
+        const match = regFrase.exec(text);
+        if (match) {
+          matchIndex = match.index;
+        }
       }
+
+      // 2. Se não encontrou a frase, procura a primeira palavra individual relevante
+      if (matchIndex === -1 && queryWords.length > 0) {
+        for (const word of queryWords) {
+          const regWord = buildAccentRegex(word);
+          const match = regWord.exec(text);
+          if (match) {
+            matchIndex = match.index;
+            break;
+          }
+        }
+      }
+
+      // Se não encontrou o termo no texto, exibe o início
+      if (matchIndex === -1) {
+        return text.substring(0, 500) + (text.length > 500 ? '...' : '');
+      }
+
+      // Janela expandida de até 1000 caracteres ao redor do termo encontrado
+      const start = Math.max(0, matchIndex - 60);
+      const end = Math.min(text.length, matchIndex + 940);
+      let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+
+      // Aplica o destaque azul nos termos
+      const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
+      for (const word of wordsToHighlight) {
+        const regHighlight = buildAccentRegex(word);
+        snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
+      }
+
+      return snippet;
     }
-  }
-
-  // Se não encontrou o termo no corpo do texto, exibe o início do texto
-  if (firstMatchIndex === -1) {
-    return text.substring(0, 500) + (text.length > 500 ? '...' : '');
-  }
-
-  // Define a janela de exibição expandida (até 800 caracteres em volta do termo)
-  const start = Math.max(0, firstMatchIndex - 80);
-  const end = Math.min(text.length, firstMatchIndex + 720);
-  let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
-
-  // Aplica o destaque azul nos termos encontrados
-  const allTerms = queryWords.length > 0 ? queryWords : [cleanQ];
-  for (const term of allTerms) {
-    const regHighlight = makeAccentInsensitiveRegex(term);
-    snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
-  }
-
-  return snippet;
-}
 
     function render() {
       const rawQuery = q.value.trim();
@@ -391,7 +392,6 @@ mark {
           .filter(d => d._score > 0)
           .sort((a, b) => b._score - a._score);
 
-        // Filtra os termos para busca limpa no Fuse.js
         const queryWords = getKeywords(rawQuery);
         const cleanSearchQuery = queryWords.join(' ');
 
@@ -427,14 +427,12 @@ mark {
 
         let rawText = ret.data.text || "";
 
-        // Limpeza do texto extraído pelo OCR
         let cleanTextStr = rawText
           .replace(/[\r\n]+/g, ' ')
           .replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÍÏÓÔÕÖÚ\s.:_-]/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
 
-        // Filtra apenas termos significativos com 3 ou mais letras
         const palavrasRelevantes = cleanTextStr.split(' ').filter(word => {
           const wClean = cleanText(word);
           return wClean.length >= 3 && !STOP_WORDS.has(wClean);

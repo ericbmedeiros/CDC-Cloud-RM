@@ -296,39 +296,53 @@
     }
 
     function getSnippet(text, rawQuery) {
-      if (!text) return '';
-      if (!rawQuery) return text.substring(0, 300) + (text.length > 300 ? '...' : '');
+  if (!text) return '';
+  if (!rawQuery) return text.substring(0, 300) + (text.length > 300 ? '...' : '');
 
-      const cleanT = cleanText(text);
-      const cleanQ = cleanText(rawQuery);
-      
-      const queryWords = rawQuery.trim().split(/[\s,.;:!?…'"]+/).filter(w => w.length > 0 && !STOP_WORDS.has(cleanText(w)));
+  // Normaliza o texto e a busca removendo acentos para localização exata
+  const normalizedText = cleanText(text);
+  const normalizedQuery = cleanText(rawQuery);
 
-      let index = -1;
-      if (cleanQ.length > 2) {
-        index = cleanT.indexOf(cleanQ);
-      }
+  // Extrai palavras-chave individuais ignorando stopwords
+  const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 
-      if (index === -1 && queryWords.length > 0) {
-        for (const w of queryWords) {
-          index = cleanT.indexOf(cleanText(w));
-          if (index !== -1) break;
-        }
-      }
+  let matchIndex = -1;
 
-      if (index === -1) return text.substring(0, 300) + (text.length > 300 ? '...' : '');
-      
-      const start = Math.max(0, index - 80);
-      const end = Math.min(text.length, index + 320);
-      let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+  // 1. Tenta encontrar a frase exata sem acentos
+  if (normalizedQuery.length > 2) {
+    matchIndex = normalizedText.indexOf(normalizedQuery);
+  }
 
-      if (queryWords.length > 0) {
-        const pattern = new RegExp(`(${queryWords.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
-        snippet = snippet.replace(pattern, '<mark>$1</mark>');
-      }
-
-      return snippet;
+  // 2. Se não achar a frase inteira, procura a primeira palavra-chave relevante
+  if (matchIndex === -1 && queryWords.length > 0) {
+    for (const word of queryWords) {
+      matchIndex = normalizedText.indexOf(word);
+      if (matchIndex !== -1) break;
     }
+  }
+
+  // Se mesmo assim não encontrar no texto, exibe o início
+  if (matchIndex === -1) {
+    return text.substring(0, 300) + (text.length > 300 ? '...' : '');
+  }
+
+  // Define a janela de corte centralizando o termo encontrado
+  const start = Math.max(0, matchIndex - 60);
+  const end = Math.min(text.length, matchIndex + 340);
+  let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+
+  // Aplica o highlight <mark> nos termos encontrados (ignorando case e acentos)
+  if (queryWords.length > 0) {
+    const escapedWords = queryWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    // Expressão regular que ignora acentos na comparação
+    const pattern = new RegExp(`(${escapedWords.join('|')})`, 'gi');
+    
+    // Substitui mantendo a palavra original em destaque
+    snippet = snippet.replace(pattern, '<mark>$1</mark>');
+  }
+
+  return snippet;
+}
 
     function render() {
       const rawQuery = q.value.trim();

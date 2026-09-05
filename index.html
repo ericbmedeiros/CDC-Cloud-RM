@@ -96,12 +96,13 @@
     .snippet::-webkit-scrollbar-thumb { background: rgba(90, 167, 255, 0.3); border-radius: 4px; }
 
     mark { 
-      background: #1e3a5f; 
-      color: #5aa7ff; 
-      font-weight: bold; 
-      padding: 2px 4px; 
-      border-radius: 4px; 
-    }
+  background: rgba(90, 167, 255, 0.2); 
+  color: #5aa7ff; 
+  font-weight: bold; 
+  padding: 2px 5px; 
+  border-radius: 4px; 
+  border: 1px solid rgba(90, 167, 255, 0.4);
+}
 
     .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
     .ocr-status { color: var(--breadcrumb-green); font-size: 13px; margin-top: 6px; font-weight: 500; display: none; }
@@ -331,54 +332,57 @@
     }
 
     function getSnippet(text, rawQuery) {
-      if (!text) return '';
-      if (!rawQuery) return text.substring(0, 500) + (text.length > 500 ? '...' : '');
+  if (!text) return '';
+  if (!rawQuery) return text.substring(0, 650) + (text.length > 650 ? '...' : '');
 
-      const cleanQ = cleanText(rawQuery);
-      const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+  const cleanQ = cleanText(rawQuery);
+  const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 
-      let matchIndex = -1;
+  let matchIndex = -1;
 
-      // 1. Tenta encontrar a frase inteira no texto original
-      if (cleanQ.length > 2) {
-        const regFrase = buildAccentRegex(cleanQ);
-        const match = regFrase.exec(text);
-        if (match) {
-          matchIndex = match.index;
-        }
+  if (cleanQ.length > 2) {
+    const regFrase = buildAccentRegex(cleanQ);
+    const match = regFrase.exec(text);
+    if (match) matchIndex = match.index;
+  }
+
+  if (matchIndex === -1 && queryWords.length > 0) {
+    for (const word of queryWords) {
+      const regWord = buildAccentRegex(word);
+      const match = regWord.exec(text);
+      if (match) {
+        matchIndex = match.index;
+        break;
       }
-
-      // 2. Se não encontrou a frase, procura a primeira palavra individual relevante
-      if (matchIndex === -1 && queryWords.length > 0) {
-        for (const word of queryWords) {
-          const regWord = buildAccentRegex(word);
-          const match = regWord.exec(text);
-          if (match) {
-            matchIndex = match.index;
-            break;
-          }
-        }
-      }
-
-      // Se não encontrou o termo no texto, exibe o início
-      if (matchIndex === -1) {
-        return text.substring(0, 500) + (text.length > 500 ? '...' : '');
-      }
-
-      // Janela ampliada para até 2000 caracteres ao redor do termo encontrado
-		const start = Math.max(0, matchIndex - 60);
-		const end = Math.min(text.length, matchIndex + 1940);
-		let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
-
-      // Aplica o destaque azul nos termos
-      const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
-      for (const word of wordsToHighlight) {
-        const regHighlight = buildAccentRegex(word);
-        snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
-      }
-
-      return snippet;
     }
+  }
+
+  if (matchIndex === -1) {
+    return text.substring(0, 650) + (text.length > 650 ? '...' : '');
+  }
+
+  // Ajustado para 1330 caracteres totais (60 antes + 1270 depois)
+  const start = Math.max(0, matchIndex - 60);
+  const end = Math.min(text.length, matchIndex + 1270);
+  let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+
+  const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
+  for (const word of wordsToHighlight) {
+    const regHighlight = buildAccentRegex(word);
+    snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
+  }
+
+  return snippet;
+}
+
+function formatSnippetText(snippetHtml) {
+  // Converte marcadores de imagem em tags HTML de imagem para exibição na tela
+  let formatted = snippetHtml.replace(/!\[Imagem\]\((https?:\/\/[^\s)]+)\)/g, '<img src="$1" style="max-width:100%; max-height:350px; display:block; border-radius:8px; margin:12px 0; border:1px solid rgba(255,255,255,0.15);" />');
+  
+  // Transforma URLs em links clicáveis
+  const urlRegex = /(?<!src=")(https?:\/\/[^\s<)]+)/g;
+  return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
 
     function render() {
       const rawQuery = q.value.trim();
@@ -409,8 +413,12 @@
 
       // Função simples para tornar URLs no texto em links clicáveis
 function formatSnippetText(snippetHtml) {
-  const urlRegex = /(https?:\/\/[^\s<]+)/g;
-  return snippetHtml.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  // Converte marcadores de imagem em tags HTML <img>
+  let formatted = snippetHtml.replace(/!\[Imagem\]\((https?:\/\/[^\s)]+)\)/g, '<img src="$1" style="max-width:100%; height:auto; border-radius:8px; margin:10px 0; border:1px solid rgba(255,255,255,0.1);" />');
+  
+  // Converte URLs normais em links clicáveis
+  const urlRegex = /(?<!src=")(https?:\/\/[^\s<)]+)/g;
+  return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
 }
 
 // Na função render(), atualize a chamada dentro do grid.innerHTML:

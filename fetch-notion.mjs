@@ -73,6 +73,15 @@ async function getBlockContent(blockId) {
           continue;
         }
 
+        // Leitura de Imagens no Notion
+        if (block.type === "image" && block.image) {
+          const imgUrl = block.image.type === "file" ? block.image.file.url : block.image.external.url;
+          if (imgUrl) {
+            text += `\n![Imagem](${imgUrl})\n`;
+          }
+          continue;
+        }
+
         const btype = block.type;
         if (block[btype]) {
           if (block[btype].rich_text && Array.isArray(block[btype].rich_text)) {
@@ -85,7 +94,6 @@ async function getBlockContent(blockId) {
           }
         }
 
-        // Entra recursivamente dentro dos Toggles e blocos com filhos
         if (block.has_children) {
           const inner = await getBlockContent(block.id);
           text += "\n" + inner.text;

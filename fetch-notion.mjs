@@ -1,8 +1,15 @@
 import fs from "node:fs";
 import https from "node:https";
+import path from "node:path";
 
 const NOTION_TOKEN = "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";
 const PAGE_ID = "70cbd5429ec38371a96d81e62c92929d";
+
+// Cria pasta assets local para armazenar as imagens permanentemente
+const ASSETS_DIR = "./assets";
+if (!fs.existsSync(ASSETS_DIR)) {
+  fs.mkdirSync(ASSETS_DIR, { recursive: true });
+}
 
 function notionRequest(endpoint) {
   return new Promise((resolve, reject) => {
@@ -35,6 +42,32 @@ function notionRequest(endpoint) {
 
     req.on('error', (e) => reject(e));
     req.end();
+  });
+}
+
+// Função para baixar imagens do Notion e salvar localmente
+function downloadImage(url, filename) {
+  return new Promise((resolve) => {
+    const filePath = path.join(ASSETS_DIR, filename);
+    
+    // Se a imagem já foi baixada anteriormente, reutiliza
+    if (fs.existsSync(filePath)) {
+      return resolve(`./assets/${filename}`);
+    }
+
+    const file = fs.createWriteStream(filePath);
+    https.get(url, (response) => {
+      if (response.statusCode === 200) {
+        response.pipe(file);
+        file.on('finish', () => {
+          file.close(() => resolve(`./assets/${filename}`));
+        });
+      } else {
+        fs.unlink(filePath, () => resolve(url)); // Se falhar, usa a URL original
+      }
+    }).on('error', () => {
+      fs.unlink(filePath, () => resolve(url));
+    });
   });
 }
 
@@ -73,11 +106,13 @@ async function getBlockContent(blockId) {
           continue;
         }
 
-        // Leitura de Imagens no Notion
+        // Leitura e Download de Imagens
         if (block.type === "image" && block.image) {
           const imgUrl = block.image.type === "file" ? block.image.file.url : block.image.external.url;
           if (imgUrl) {
-            text += `\n![Imagem](${imgUrl})\n`;
+            const imageName = `img_${block.id.replaceAll("-", "")}.png`;
+            const localPath = await downloadImage(imgUrl, imageName);
+            text += `\n![Imagem](${localPath})\n`;
           }
           continue;
         }
@@ -152,7 +187,7 @@ async function scanPageRecursively(pageId, parentPath = []) {
 }
 
 async function main() {
-  console.log("Iniciando varredura a partir da raiz SUPORTE...");
+  console.log("Iniciando varredura e download de imagens...");
   const docs = await scanPageRecursively(PAGE_ID);
 
   const payload = {
@@ -165,7 +200,7 @@ async function main() {
   fs.writeFileSync("./docs.json", jsonContent, "utf8");
   fs.writeFileSync("./docs.js", `const DATA = ${jsonContent};`, "utf8");
 
-  console.log(`\nSucesso! ${docs.length} páginas indexadas com sucesso.`);
+  console.log(`\nSucesso! ${docs.length} páginas e imagens salvas localmente em ./assets`);
 }
 
 main();

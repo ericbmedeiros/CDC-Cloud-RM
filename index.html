@@ -71,43 +71,76 @@
     
     /* Balão de conteúdo expandido e rolável */
     .snippet { 
-  color: var(--muted); 
-  font-size: 14px; 
-  line-height: 1.6; 
-  margin-top: 10px; 
-  white-space: pre-wrap;   /* Garante que as quebras de linha do Notion apareçam */
-  word-break: break-word;
-  max-height: 800px;
-  overflow-y: auto;
-  background: rgba(0,0,0,0.25);
-  padding: 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.06);
-}
+      color: var(--muted); 
+      font-size: 14px; 
+      line-height: 1.6; 
+      margin-top: 10px; 
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 800px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.25);
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
 
-.snippet a {
-  color: var(--accent);
-  text-decoration: underline;
-}
+    .snippet a {
+      color: var(--accent);
+      text-decoration: underline;
+    }
 
-    /* Estilização da barra de rolagem do balão */
+    /* Estilo para miniaturas de imagens no balão */
+    .snippet img {
+      max-width: 280px;
+      max-height: 180px;
+      object-fit: cover;
+      display: block;
+      border-radius: 8px;
+      margin: 12px 0;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .snippet img:hover {
+      transform: scale(1.02);
+      border-color: var(--accent);
+    }
+
+    /* Modal de Zoom da Imagem */
+    .img-modal-backdrop {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center;
+      z-index: 200; cursor: pointer;
+    }
+
+    .img-modal-content {
+      max-width: 90vw; max-height: 90vh;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      border: 1px solid var(--border);
+    }
+
+    /* Barra de rolagem estilizada */
     .snippet::-webkit-scrollbar { width: 6px; }
     .snippet::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
     .snippet::-webkit-scrollbar-thumb { background: rgba(90, 167, 255, 0.3); border-radius: 4px; }
 
     mark { 
-  background: rgba(90, 167, 255, 0.2); 
-  color: #5aa7ff; 
-  font-weight: bold; 
-  padding: 2px 5px; 
-  border-radius: 4px; 
-  border: 1px solid rgba(90, 167, 255, 0.4);
-}
+      background: rgba(90, 167, 255, 0.2); 
+      color: #5aa7ff; 
+      font-weight: bold; 
+      padding: 2px 5px; 
+      border-radius: 4px; 
+      border: 1px solid rgba(90, 167, 255, 0.4);
+    }
 
     .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
     .ocr-status { color: var(--breadcrumb-green); font-size: 13px; margin-top: 6px; font-weight: 500; display: none; }
 
-    /* Modal de Sugestoes */
+    /* Modal de Sugestões */
     .modal-backdrop {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
@@ -187,6 +220,11 @@
   </div>
 </div>
 
+<!-- Modal para Ampliar Imagens -->
+<div class="img-modal-backdrop" id="imgModal" onclick="fecharModalImagem()">
+  <img class="img-modal-content" id="imgModalSrc" src="" alt="Imagem Ampliada" />
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="./docs.js"></script>
@@ -250,7 +288,6 @@
       textKeywords: getKeywords(d.text)
     }));
 
-    // Configuração do Fuse.js associada corretamente à propriedade 'text'
     const fuse = new Fuse(searchDocs, {
       keys: [
         { name: 'title', weight: 0.7 },
@@ -320,7 +357,6 @@
       return parts.join(' > ');
     }
 
-    // Gerador de Regex Insensível a Acentos
     function buildAccentRegex(term) {
       const charMap = {
         'a': '[aáàâãä]', 'e': '[eéèêë]', 'i': '[iíìîï]',
@@ -332,57 +368,62 @@
     }
 
     function getSnippet(text, rawQuery) {
-  if (!text) return '';
-  if (!rawQuery) return text.substring(0, 650) + (text.length > 650 ? '...' : '');
+      if (!text) return '';
+      if (!rawQuery) return text.substring(0, 650) + (text.length > 650 ? '...' : '');
 
-  const cleanQ = cleanText(rawQuery);
-  const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+      const cleanQ = cleanText(rawQuery);
+      const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 
-  let matchIndex = -1;
+      let matchIndex = -1;
 
-  if (cleanQ.length > 2) {
-    const regFrase = buildAccentRegex(cleanQ);
-    const match = regFrase.exec(text);
-    if (match) matchIndex = match.index;
-  }
-
-  if (matchIndex === -1 && queryWords.length > 0) {
-    for (const word of queryWords) {
-      const regWord = buildAccentRegex(word);
-      const match = regWord.exec(text);
-      if (match) {
-        matchIndex = match.index;
-        break;
+      if (cleanQ.length > 2) {
+        const regFrase = buildAccentRegex(cleanQ);
+        const match = regFrase.exec(text);
+        if (match) matchIndex = match.index;
       }
+
+      if (matchIndex === -1 && queryWords.length > 0) {
+        for (const word of queryWords) {
+          const regWord = buildAccentRegex(word);
+          const match = regWord.exec(text);
+          if (match) {
+            matchIndex = match.index;
+            break;
+          }
+        }
+      }
+
+      if (matchIndex === -1) {
+        return text.substring(0, 650) + (text.length > 650 ? '...' : '');
+      }
+
+      // Janela de 1330 caracteres no total (60 antes + 1270 depois)
+      const start = Math.max(0, matchIndex - 60);
+      const end = Math.min(text.length, matchIndex + 1270);
+      let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+
+      const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
+      for (const word of wordsToHighlight) {
+        const regHighlight = buildAccentRegex(word);
+        snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
+      }
+
+      return snippet;
     }
-  }
 
-  if (matchIndex === -1) {
-    return text.substring(0, 650) + (text.length > 650 ? '...' : '');
-  }
+    function formatSnippetText(snippetHtml) {
+      if (!snippetHtml) return '';
 
-  // Ajustado para 1330 caracteres totais (60 antes + 1270 depois)
-  const start = Math.max(0, matchIndex - 60);
-  const end = Math.min(text.length, matchIndex + 1270);
-  let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+      // Converte Marcadores de Imagem ![Imagem](URL_OU_PATH) em miniaturas clicáveis
+      let formatted = snippetHtml.replace(
+        /!\[Imagem\]\(([^)]+)\)/g,
+        '<img src="$1" alt="Preview" onclick="ampliarImagem(\'$1\')" title="Clique para ampliar" />'
+      );
 
-  const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
-  for (const word of wordsToHighlight) {
-    const regHighlight = buildAccentRegex(word);
-    snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
-  }
-
-  return snippet;
-}
-
-function formatSnippetText(snippetHtml) {
-  // Converte marcadores de imagem em tags HTML de imagem para exibição na tela
-  let formatted = snippetHtml.replace(/!\[Imagem\]\((https?:\/\/[^\s)]+)\)/g, '<img src="$1" style="max-width:100%; max-height:350px; display:block; border-radius:8px; margin:12px 0; border:1px solid rgba(255,255,255,0.15);" />');
-  
-  // Transforma URLs em links clicáveis
-  const urlRegex = /(?<!src=")(https?:\/\/[^\s<)]+)/g;
-  return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-}
+      // Converte URLs normais em links clicáveis
+      const urlRegex = /(?<!src=")(https?:\/\/[^\s<)]+)/g;
+      return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    }
 
     function render() {
       const rawQuery = q.value.trim();
@@ -411,28 +452,17 @@ function formatSnippetText(snippetHtml) {
         results = [...directMatches, ...fuseMatches];
       }
 
-      // Função simples para tornar URLs no texto em links clicáveis
-function formatSnippetText(snippetHtml) {
-  // Converte marcadores de imagem em tags HTML <img>
-  let formatted = snippetHtml.replace(/!\[Imagem\]\((https?:\/\/[^\s)]+)\)/g, '<img src="$1" style="max-width:100%; height:auto; border-radius:8px; margin:10px 0; border:1px solid rgba(255,255,255,0.1);" />');
-  
-  // Converte URLs normais em links clicáveis
-  const urlRegex = /(?<!src=")(https?:\/\/[^\s<)]+)/g;
-  return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-}
-
-// Na função render(), atualize a chamada dentro do grid.innerHTML:
-grid.innerHTML = results.map(d => {
-  const parentPath = getParentPathOnly(d);
-  const snippetContent = formatSnippetText(getSnippet(d.text, rawQuery));
-  return `
-    <div class="card">
-      ${parentPath ? `<div class="path-parent">${parentPath}</div>` : ''}
-      <h3><a href="${d.url || '#'}" target="_blank" rel="noopener">${d.title}</a></h3>
-      <div class="snippet">${snippetContent}</div>
-    </div>
-  `;
-}).join('');
+      grid.innerHTML = results.map(d => {
+        const parentPath = getParentPathOnly(d);
+        const snippetContent = formatSnippetText(getSnippet(d.text, rawQuery));
+        return `
+          <div class="card">
+            ${parentPath ? `<div class="path-parent">${parentPath}</div>` : ''}
+            <h3><a href="${d.url || '#'}" target="_blank" rel="noopener">${d.title}</a></h3>
+            <div class="snippet">${snippetContent}</div>
+          </div>
+        `;
+      }).join('');
 
       count.textContent = `${results.length} resultado(s) encontrado(s)`;
     }
@@ -499,6 +529,22 @@ grid.innerHTML = results.map(d => {
     q.addEventListener('input', render);
     count.textContent = `${DOCS.length} documentações carregadas.`;
     render();
+  }
+
+  function ampliarImagem(url) {
+    const modal = document.getElementById('imgModal');
+    const modalImg = document.getElementById('imgModalSrc');
+    if (modal && modalImg) {
+      modalImg.src = url;
+      modal.style.display = 'flex';
+    }
+  }
+
+  function fecharModalImagem() {
+    const modal = document.getElementById('imgModal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
   }
 
   function abrirModalFeedback() {

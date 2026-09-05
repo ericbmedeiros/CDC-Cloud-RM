@@ -131,7 +131,7 @@ async function scanPageRecursively(pageId, parentPath = []) {
       title: title,
       path: pathString,
       url: page.url || null,
-      text: (title + " " + text).replace(/\s+/g, " ").trim()
+      text: (title + "\n\n" + text).replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim()
     });
 
     for (const childId of subPageIds) {

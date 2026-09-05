@@ -75,14 +75,19 @@
   font-size: 14px; 
   line-height: 1.6; 
   margin-top: 10px; 
-  white-space: pre-wrap; 
+  white-space: pre-wrap;   /* Garante que as quebras de linha do Notion apareçam */
   word-break: break-word;
-  max-height: 800px;       /* Altura dobrada para exibir respostas completas */
-  overflow-y: auto;        /* Rolagem interna quando o texto ultrapassar a tela */
+  max-height: 800px;
+  overflow-y: auto;
   background: rgba(0,0,0,0.25);
   padding: 16px;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.06);
+}
+
+.snippet a {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
     /* Estilização da barra de rolagem do balão */
@@ -402,16 +407,24 @@
         results = [...directMatches, ...fuseMatches];
       }
 
-      grid.innerHTML = results.map(d => {
-        const parentPath = getParentPathOnly(d);
-        return `
-          <div class="card">
-            ${parentPath ? `<div class="path-parent">${parentPath}</div>` : ''}
-            <h3><a href="${d.url || '#'}" target="_blank" rel="noopener">${d.title}</a></h3>
-            <div class="snippet">${getSnippet(d.text, rawQuery)}</div>
-          </div>
-        `;
-      }).join('');
+      // Função simples para tornar URLs no texto em links clicáveis
+function formatSnippetText(snippetHtml) {
+  const urlRegex = /(https?:\/\/[^\s<]+)/g;
+  return snippetHtml.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+
+// Na função render(), atualize a chamada dentro do grid.innerHTML:
+grid.innerHTML = results.map(d => {
+  const parentPath = getParentPathOnly(d);
+  const snippetContent = formatSnippetText(getSnippet(d.text, rawQuery));
+  return `
+    <div class="card">
+      ${parentPath ? `<div class="path-parent">${parentPath}</div>` : ''}
+      <h3><a href="${d.url || '#'}" target="_blank" rel="noopener">${d.title}</a></h3>
+      <div class="snippet">${snippetContent}</div>
+    </div>
+  `;
+}).join('');
 
       count.textContent = `${results.length} resultado(s) encontrado(s)`;
     }

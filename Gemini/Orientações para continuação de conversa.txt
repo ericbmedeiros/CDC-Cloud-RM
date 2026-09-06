@@ -1,46 +1,65 @@
-Contexto do Projeto: Central de Conhecimento — CDC - Suporte Cloud (RM)
-Objetivo do Projeto:
+Resumo do Projeto: Central de Conhecimento — Suporte Cloud (RM)
+1. Visão Geral e Arquitetura do Sistema
+Objetivo: Plataforma web interna para consulta instantânea de documentações operacionais e resoluções de erros do Suporte Cloud (RM).
 
-Criar uma base de conhecimento privada, rápida e pesquisável para a equipe de suporte (CDC - Suporte Cloud (RM)).
+Stack Tecnológico:
 
-Origem dos dados: Páginas e subpáginas organizadas no Notion.
+Frontend: Vanilla JavaScript, CSS customizado e HTML5 (sem frameworks pesados).
 
-Acesso da equipe: O painel lista soluções e atalhos com trechos expandidos. Ao clicar no título, o analista abre a página correspondente no navegador Notion via link web (não exige instalação do aplicativo Notion por parte dos analistas).
+Motor de Busca: Fuse.js (fuzzy search / extended search) integrado a um algoritmo personalizado de pontuação de relevância.
 
-Estrutura de Arquivos e Localização:
+Processamento de Imagem (OCR): Tesseract.js para leitura automática de textos em prints colados (Ctrl+V) ou anexados.
 
-Pasta local: C:\Users\eric.bordignon\Desktop\Projeto IA\
+Fonte de Dados: API do Notion integrando recursivamente páginas e subpáginas.
 
-fetch-notion.mjs: Script Node.js responsável por varrer a API do Notion via HTTPS de forma recursiva (incluindo subpáginas, blocos link_to_page, listas retráteis/toggles e menções em rich_text).
+Hospedagem & Deploy: GitHub integrado com deploy automático no Netlify.
 
-docs.json / docs.js: Arquivos de banco de dados locais gerados pelo script Node.js.
+Criação de Assets Locais: Scripts Node.js para varredura e download persistente de imagens.
 
-index.html: Interface visual (UI) do painel de busca.
+2. Funcionamento do Backend/Sincronização (fetch-notion.mjs)
+Download de Imagens Persistentes (/assets): Como as URLs de imagens do S3/Notion expiram em 1 hora (X-Amz-Expires=3600), o script Node.js faz o download local automático de todas as imagens para a pasta ./assets/ durante a varredura, atribuindo nomes únicos (ex: img_[block_id].png).
 
-Configurações Atualizadas e Preferências Visuais:
+Tratamento de Links e Menções:
 
-Título do Painel: Central de Conhecimento - Suporte Cloud (RM).
+Converte rich_texts com t.href e menções de páginas do Notion para a sintaxe Markdown [Texto](URL).
 
-Segurança e SEO: Proteção por senha integrada via JavaScript (SENHA_CORRETA = "redondo") utilizando localStorage do navegador para evitar solicitações repetidas no mesmo dispositivo; tag <meta name="robots" content="noindex, nofollow" /> para impedir indexação em motores de busca.
+Preserva a hierarquia de páginas (path completo usando delimitadores >) para exibição do breadcrumb.
 
-Layout da UI:
+Saída de Dados: Gera os arquivos docs.json e docs.js (este último exportando o objeto global const DATA = ... para consumo direto no frontend sem requisições HTTP adicionais).
 
-Modo escuro estilizado.
+3. Frontend e Algoritmo de Busca (index.html)
+Autenticação Simples: Prompt de senha local armazenada em sessionStorage (SENHA_CORRETA = "redondo").
 
-Disposição dos cards em largura total (lista/feed vertical).
+Algoritmo de Relevância (getScore):
 
-Cabeçalho de Caminho: Apenas o caminho dos diretórios anteriores (getParentPathOnly) é exibido na linha superior em tom verde (#20c997), removendo a repetição do título final.
+Sloppy Match / Proximidade: Regex avançado que tolera conectivos e pequenas distâncias entre palavras para encontrar frases inteiras acentuadas ou não.
 
-Título clicável: Exibido logo abaixo em azul (#5aa7ff) sem sublinhado.
+Pesos Direcionados: Premia acertos exatos no Título, Caminho e Texto. Dá bônus exponencial se múltiplos termos da busca forem encontrados no mesmo documento (evitando que documentos com apenas 1 palavra genérica atropelem o resultado).
 
-Trechos (Snippets): Exibição ampliada para leitura direta das soluções.
+Stopwords expandidas: Filtro em português e inglês para impedir que parâmetros de URLs (http/https) e palavras como and, please, that, is inflem resultados.
 
-Highlights: Destaque de termos pesquisados em branco puro simples (#ffffff), sem peso em negrito ou fundo colorido.
+Interface & UX:
 
-Pílulas redundantes (Ctrl+K e Busca Otimizada) foram removidas do topo.
+Balões de Conteúdo (.snippet): Fundo escuro translúcido (rgba(4, 8, 16, 0.55)), borda azul vibrante (rgba(90, 167, 255, 0.25)), altura máxima fixa de 500px com rolagem interna e captura de até 1700 caracteres ao redor do termo encontrado.
 
-Algoritmo de Busca:
+Miniaturas de Imagens: Exibidas dentro do balão com max-width: 280px e max-height: 180px.
 
-Combinação de pontuação por pesos (título exato ganha +1000 pontos) + busca difusa (Fuse.js com threshold: 0.25).
+Modal de Zoom: Clique na miniatura abre modal em tela cheia com fundo desfocado (backdrop-filter: blur).
 
-Normalização de texto sem acentos e sem hífens para ordenação por relevância estrita.
+Highlights (<mark>): Marcação em azul neon translúcido (#5aa7ff) tolerante a acentuação para destacar termos correspondentes.
+
+Modal de Feedback: Envio de sugestões/correções integrado via Webhook para planilha do Google Sheets.
+
+4. Workflow de Manutenção Diária & Deploy
+Local do Projeto: C:\Users\eric.bordignon\Desktop\Projeto IA\CDC
+
+Comando Único de Sincronização Diária:
+
+PowerShell
+
+cd "C:\Users\eric.bordignon\Desktop\Projeto IA\CDC"
+node fetch-notion.mjs
+git add .
+git commit -m "Sincronizacao diaria de documentacoes"
+git push
+Gestão de Créditos do Netlify: Apenas 1 push diário é realizado para economizar minutos de build (300 créditos gratuitos por mês que renovam a cada ciclo).

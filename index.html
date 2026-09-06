@@ -7,15 +7,15 @@
   <title>Central de Conhecimento - Suporte Cloud (RM)</title>
   <style>
     :root {
-  --bg: #0b0f19; 
-  --card: #121a2a; 
-  --muted: #9aa7bd; 
-  --text: #e8eefc;
-  --accent: #5aa7ff; /* Azul claro estilizado */
-  --highlight: #ffffff; 
-  --border: rgba(90, 167, 255, 0.15); /* Borda translúcida suave */
-  --breadcrumb-green: #20c997;
-}
+      --bg: #0b0f19; 
+      --card: #121a2a; 
+      --muted: #9aa7bd; 
+      --text: #e8eefc;
+      --accent: #5aa7ff;
+      --highlight: #ffffff; 
+      --border: rgba(90, 167, 255, 0.15);
+      --breadcrumb-green: #20c997;
+    }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
     header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); background: rgba(11,15,25,.85); border-bottom: 1px solid var(--border); }
@@ -74,51 +74,37 @@
     .card h3 a { color: var(--accent); text-decoration: none; }
     .card h3 a:hover { opacity: 0.85; }
     
-    /* Balão escuro destacado com borda vibrante */
-.snippet { 
-  color: #c0cdf0;                     /* Texto um pouco mais claro e legível */
-  font-size: 14px; 
-  line-height: 1.6; 
-  margin-top: 12px; 
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 500px;
-  overflow-y: auto;
-  background: rgba(4, 8, 16, 0.55);   /* Fundo escuro em camadas para dar contraste */
-  padding: 16px 20px;
-  border-radius: 10px;
-  border: 1px solid rgba(90, 167, 255, 0.25); /* Borda azul vibrante */
-  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4);
-}
-
-.snippet a {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-/* Destaque das palavras buscadas (marcação azul clássica) */
-mark { 
-  background: rgba(90, 167, 255, 0.25); 
-  color: #5aa7ff; 
-  font-weight: bold; 
-  padding: 2px 4px; 
-  border-radius: 4px; 
-  border: 1px solid rgba(90, 167, 255, 0.4);
-}
-
-    .snippet a {
-      color: var(--accent);
-      text-decoration: underline;
+    .snippet { 
+      color: #c0cdf0; 
+      font-size: 14px; 
+      line-height: 1.6; 
+      margin-top: 12px; 
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 500px;
+      overflow-y: auto;
+      background: rgba(4, 8, 16, 0.55); 
+      padding: 16px 20px;
+      border-radius: 10px;
+      border: 1px solid rgba(90, 167, 255, 0.25);
+      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4);
     }
 
-    /* Estilo para miniaturas de imagens no balão */
+    .snippet a { color: var(--accent); text-decoration: underline; }
+
+    /* Imagens e tratamento de carregamento */
+    .snippet .img-container {
+      display: inline-block;
+      margin: 12px 0;
+      position: relative;
+    }
+
     .snippet img {
       max-width: 280px;
       max-height: 180px;
       object-fit: cover;
       display: block;
       border-radius: 8px;
-      margin: 12px 0;
       border: 1px solid rgba(255, 255, 255, 0.15);
       cursor: pointer;
       transition: transform 0.2s ease, border-color 0.2s ease;
@@ -129,7 +115,20 @@ mark {
       border-color: var(--accent);
     }
 
-    /* Modal de Zoom da Imagem */
+    .img-fallback-msg {
+      display: none;
+      font-size: 12px;
+      color: #ffc107;
+      background: rgba(255, 193, 7, 0.1);
+      border: 1px dashed rgba(255, 193, 7, 0.4);
+      padding: 8px 12px;
+      border-radius: 6px;
+    }
+
+    .img-container.img-failed img { display: none; }
+    .img-container.img-failed .img-fallback-msg { display: block; }
+
+    /* Modal de Zoom */
     .img-modal-backdrop {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(6px);
@@ -144,25 +143,24 @@ mark {
       border: 1px solid var(--border);
     }
 
-    /* Barra de rolagem estilizada */
     .snippet::-webkit-scrollbar { width: 6px; }
     .snippet::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
     .snippet::-webkit-scrollbar-thumb { background: rgba(90, 167, 255, 0.3); border-radius: 4px; }
 
     mark { 
-  background: rgba(90, 167, 255, 0.22); 
-  color: #5aa7ff; 
-  font-weight: bold; 
-  padding: 2px 6px; 
-  border-radius: 4px; 
-  border: 1px solid rgba(90, 167, 255, 0.45);
-  box-shadow: 0 0 8px rgba(90, 167, 255, 0.2);
-}
+      background: rgba(90, 167, 255, 0.22); 
+      color: #5aa7ff; 
+      font-weight: bold; 
+      padding: 2px 6px; 
+      border-radius: 4px; 
+      border: 1px solid rgba(90, 167, 255, 0.45);
+      box-shadow: 0 0 8px rgba(90, 167, 255, 0.2);
+    }
 
     .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
     .ocr-status { color: var(--breadcrumb-green); font-size: 13px; margin-top: 6px; font-weight: 500; display: none; }
 
-    /* Modal de Sugestões */
+    /* Modal de Feedback */
     .modal-backdrop {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
@@ -278,19 +276,20 @@ mark {
     const ocrStatus = document.getElementById('ocrStatus');
 
     const STOP_WORDS = new Set([
-  "de", "da", "do", "das", "dos", "ao", "aos", "em", "no", "na", "nos", "nas", 
-  "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "não", "foi", 
-  "possivel", "there", "was", "no", "at", "que", "ha", "este", "esta", "on", "the",
-  "please", "ensure", "that", "and", "are", "same", "is", "of", "to", "in", "for", "with"
-	]);
+      "de", "da", "do", "das", "dos", "ao", "aos", "em", "no", "na", "nos", "nas", 
+      "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "não", "foi", 
+      "possivel", "there", "was", "no", "at", "que", "ha", "este", "esta", "on", "the",
+      "please", "ensure", "that", "and", "are", "same", "is", "of", "to", "in", "for", "with"
+    ]);
 
+    // Preserva barras, traços, underlines e pontos essenciais em códigos e caminhos
     function cleanText(s) {
       if (!s) return '';
       return s
         .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
-        .replace(/[^a-z0-9 ]/g, ' ')
+        .replace(/[^a-z0-9\\/_\-.:% ]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
     }
@@ -299,7 +298,7 @@ mark {
       const clean = cleanText(text);
       return clean
         .split(' ')
-        .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+        .filter(w => w.length >= 2 && !STOP_WORDS.has(w));
     }
 
     const searchDocs = DOCS.map(d => ({
@@ -330,53 +329,49 @@ mark {
 
       let score = 0;
 
-      // 1. Frase Exata no texto limpo
-      if (cleanQ.length > 2 && d.cleanText.includes(cleanQ)) {
-        score += 5000;
+      // 1. Frase Exata Sequencial (Peso Máximo)
+      if (cleanQ.length > 5 && d.cleanText.includes(cleanQ)) {
+        score += 10000;
       }
 
-      // 2. Busca por Proximidade de Frase (Sloppy Match / Regex tolerando conectivos entre termos)
-      if (queryWords.length > 1) {
-        const pattern = queryWords.join('.{0,30}?');
-        const sloppyRegex = new RegExp(pattern, 'i');
-        if (sloppyRegex.test(d.cleanText)) {
-          score += 3500;
+      // 2. Bônus por Densidade/Proximidade (N-Grams / Palavras juntas na mesma frase)
+      if (queryWords.length >= 3) {
+        for (let i = 0; i <= queryWords.length - 3; i++) {
+          const trioPattern = queryWords.slice(i, i + 3)
+            .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .join('.{0,80}?');
+          
+          const trioRegex = new RegExp(trioPattern, 'i');
+          if (trioRegex.test(d.cleanText)) {
+            score += 3500;
+          }
         }
       }
 
-      // 3. Coincidência no Título ou Caminho
-      if (d.cleanTitle === cleanQ) score += 3000;
-      else if (d.cleanTitle.includes(cleanQ)) score += 1200;
-      if (d.cleanPath.includes(cleanQ)) score += 600;
+      // 3. Pontuação por Preservação de Tokens Técnicos Especiais (\, _, -, ., números)
+      const technicalTokens = queryWords.filter(w => /[\\/_\-.:%]/.test(w) || (/\d/.test(w) && w.length >= 3));
+      for (const token of technicalTokens) {
+        if (d.cleanText.includes(token)) {
+          score += 1500;
+        }
+      }
 
-      // 4. Avaliação por frequência e especificidade de palavras-chave encontradas
+      // 4. Coincidência no Título ou Caminho
+      if (d.cleanTitle.includes(cleanQ)) score += 2500;
+      if (d.cleanPath.includes(cleanQ)) score += 1200;
+
+      // 5. Presença individual de termos
       let matchedKeywords = 0;
       for (const word of queryWords) {
-        if (d.titleKeywords.includes(word)) {
-          score += 400;
-          matchedKeywords++;
-        } else if (d.cleanPath.includes(word)) {
-          score += 200;
-          matchedKeywords++;
-        } else if (d.cleanText.includes(word)) {
-          // Palavras mais longas/específicas recebem mais peso
-          score += (word.length >= 6 ? 150 : 80);
+        if (d.cleanText.includes(word)) {
+          score += (word.length >= 5 ? 120 : 50);
           matchedKeywords++;
         }
       }
 
-      // 5. Bônus por porcentagem de termos combinados
+      // 6. Multiplicador de Porcentagem de Coincidência
       const matchRatio = matchedKeywords / queryWords.length;
-      if (matchRatio === 1) {
-        score += 2500; // 100% dos termos relevantes presentes
-      } else if (matchRatio >= 0.75) {
-        score += 1200;
-      } else if (matchRatio >= 0.5) {
-        score += 500;
-      } else {
-        // Se encontrou apenas 1 palavra de uma busca com 3 ou mais termos, reduz peso para evitar falso positivo
-        score = score * 0.3;
-      }
+      score = score * Math.pow(matchRatio, 2);
 
       return score;
     }
@@ -384,9 +379,7 @@ mark {
     function getParentPathOnly(doc) {
       const fullPath = doc.path || doc.title || '';
       const parts = fullPath.split(' > ');
-
       if (parts.length <= 1) return ''; 
-      
       parts.pop(); 
       return parts.join(' > ');
     }
@@ -410,7 +403,6 @@ mark {
 
       let matchIndex = -1;
 
-      // 1. Procura ocorrência da frase ou sequência aproximada dos termos
       if (queryWords.length > 1) {
         const pattern = queryWords.map(w => buildAccentRegex(w).source).join('.{0,40}?');
         const sloppyRegex = new RegExp(pattern, 'i');
@@ -418,7 +410,6 @@ mark {
         if (match) matchIndex = match.index;
       }
 
-      // 2. Se não encontrou a sequência aproximada, procura a primeira palavra individual da busca
       if (matchIndex === -1 && queryWords.length > 0) {
         for (const word of queryWords) {
           const regWord = buildAccentRegex(word);
@@ -434,12 +425,10 @@ mark {
         return text.substring(0, 650) + (text.length > 650 ? '...' : '');
       }
 
-      // Janela de 1700 caracteres totais (60 antes + 1640 depois)
       const start = Math.max(0, matchIndex - 60);
       const end = Math.min(text.length, matchIndex + 1640);
       let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
 
-      // Aplica a tag <mark> azul de destaque nos termos encontrados no snippet
       const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
       for (const word of wordsToHighlight) {
         const regHighlight = buildAccentRegex(word);
@@ -452,26 +441,29 @@ mark {
     function formatSnippetText(snippetHtml) {
       if (!snippetHtml) return '';
 
-      // 1. Converte miniaturas de imagens localizadas na pasta ./assets/ ou URLs remotas
       let formatted = snippetHtml.replace(
         /!\[Imagem\]\(([^)]+)\)/g,
-        '<img src="$1" alt="Preview" onclick="ampliarImagem(\'$1\')" title="Clique para ampliar" />'
+        `<div class="img-container">
+          <img src="$1" 
+               alt="Imagem da Documentação" 
+               onerror="this.onerror=null; this.parentElement.classList.add('img-failed');" 
+               onclick="ampliarImagem('$1')" 
+               title="Clique para ampliar" />
+          <div class="img-fallback-msg">⚠️ Imagem pendente de carregamento no servidor</div>
+         </div>`
       );
 
-      // 2. Converte links em formato Markdown [Texto](URL)
       formatted = formatted.replace(
         /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
         '<a href="$2" target="_blank" rel="noopener">$1</a>'
       );
 
-      // 3. Converte URLs simples que iniciam com https://
       const urlRegex = /(?<!href=")(?<!src=")(https?:\/\/[^\s<)]+)/g;
       return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     }
 
     function render() {
       const rawQuery = q.value.trim();
-
       let results = [];
 
       if (!rawQuery) {
@@ -511,26 +503,61 @@ mark {
       count.textContent = `${results.length} resultado(s) encontrado(s)`;
     }
 
+    function preprocessImageCanvas(imageSource) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width * 2;
+          canvas.height = img.height * 2;
+
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imgData.data;
+
+          for (let i = 0; i < data.length; i += 4) {
+            const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+            const v = avg > 140 ? 255 : 0;
+            data[i] = v;
+            data[i + 1] = v;
+            data[i + 2] = v;
+          }
+
+          ctx.putImageData(imgData, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.src = typeof imageSource === 'string' ? imageSource : URL.createObjectURL(imageSource);
+      });
+    }
+
     async function processarImagemOCR(imageSource) {
       ocrStatus.style.display = "block";
-      ocrStatus.textContent = "Processando imagem do erro via OCR...";
+      ocrStatus.textContent = "Otimizando imagem e lendo texto do erro...";
 
       try {
+        const processedImage = await preprocessImageCanvas(imageSource);
         const worker = await Tesseract.createWorker('por');
-        const ret = await worker.recognize(imageSource);
+
+        await worker.setParameters({
+          tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+        });
+
+        const ret = await worker.recognize(processedImage);
         await worker.terminate();
 
         let rawText = ret.data.text || "";
 
         let cleanTextStr = rawText
           .replace(/[\r\n]+/g, ' ')
-          .replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÍÏÓÔÕÖÚ\s.:_-]/g, ' ')
+          .replace(/[^a-zA-Z0-9\\/_\-.:% ]/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
 
         const palavrasRelevantes = cleanTextStr.split(' ').filter(word => {
           const wClean = cleanText(word);
-          return wClean.length >= 3 && !STOP_WORDS.has(wClean);
+          return wClean.length >= 2 && !STOP_WORDS.has(wClean);
         });
 
         const textoLido = palavrasRelevantes.join(' ');
@@ -538,9 +565,9 @@ mark {
         if (textoLido.length > 0) {
           q.value = textoLido;
           render();
-          ocrStatus.textContent = "Texto extraído da imagem e applied na busca!";
+          ocrStatus.textContent = "Texto extraído com sucesso!";
         } else {
-          ocrStatus.textContent = "Nenhum texto legível relevante foi encontrado na imagem.";
+          ocrStatus.textContent = "Nenhum texto relevante foi identificado.";
         }
       } catch (err) {
         console.error(err);

@@ -147,15 +147,18 @@
     .snippet::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
     .snippet::-webkit-scrollbar-thumb { background: rgba(90, 167, 255, 0.3); border-radius: 4px; }
 
-    mark { 
-      background: rgba(90, 167, 255, 0.22); 
-      color: #5aa7ff; 
-      font-weight: bold; 
-      padding: 2px 6px; 
-      border-radius: 4px; 
-      border: 1px solid rgba(90, 167, 255, 0.45);
-      box-shadow: 0 0 8px rgba(90, 167, 255, 0.2);
-    }
+   /* Destaque padronizado, limpo e consistente */
+	mark { 
+  background: rgba(90, 167, 255, 0.25); 
+  color: #5aa7ff; 
+  font-weight: 700; 
+  padding: 1px 3px; 
+  border-radius: 3px; 
+  border: 1px solid rgba(90, 167, 255, 0.4);
+  box-shadow: none; /* Remove acúmulo de brilho/sombra ao colar termos */
+  display: inline-block;
+  line-height: 1.1;
+}
 
     .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
     .ocr-status { color: var(--breadcrumb-green); font-size: 13px; margin-top: 6px; font-weight: 500; display: none; }
@@ -283,27 +286,26 @@
       "de", "da", "do", "das", "dos", "ao", "aos", "em", "no", "na", "nos", "nas", 
       "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "não", "foi", 
       "possivel", "there", "was", "no", "at", "que", "ha", "este", "esta", "on", "the",
-      "please", "ensure", "that", "and", "are", "same", "is", "of", "to", "in", "for", "with",
-      "server", "error", "application" // Termos genéricos do IIS removidos da relevância individual
+      "please", "ensure", "that", "and", "are", "same", "is", "of", "to", "in", "for", "with"
     ]);
 
-    // Sanitiza pontuações soltas nas extremidades das palavras (como "Application.")
+    // Limpa mantendo apenas letras, números e espaços, separando pontuações
     function cleanText(s) {
       if (!s) return '';
       return s
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
-        .replace(/[^a-z0-9\\/_\-.:% ]/g, ' ')
+        .replace(/[^a-z0-9 ]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
     }
 
+    // Extrai palavras puras ignorando pontuação nas pontas
     function getKeywords(text) {
       const clean = cleanText(text);
       return clean
         .split(' ')
-        .map(w => w.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '')) // Limpa pontuação colada nas pontas
         .filter(w => w.length >= 2 && !STOP_WORDS.has(w));
     }
 
@@ -321,9 +323,9 @@
         { name: 'title', weight: 0.7 },
         { name: 'text', weight: 0.3 }
       ],
-      threshold: 0.2,
+      threshold: 0.3,
       ignoreLocation: true,
-      minMatchCharLength: 3,
+      minMatchCharLength: 2,
       useExtendedSearch: true
     });
 
@@ -335,54 +337,47 @@
 
       let score = 0;
 
-      // 1. Frase Completa ou Trecho Contínuo
-      if (cleanQ.length > 5 && d.cleanText.includes(cleanQ)) {
-        score += 15000;
+      // 1. Frase Exata Sequencial
+      if (cleanQ.length > 4 && d.cleanText.includes(cleanQ)) {
+        score += 20000;
       }
 
-      // 2. Pontuação por Pares e Trios de Palavras Consecutivas (N-Grams)
+      // 2. Pontuação por Blocos / Vizinhança de Palavras (Aparecerem juntas no mesmo parágrafo)
+      let uniqueMatches = 0;
+      for (const word of queryWords) {
+        if (d.cleanText.includes(word)) {
+          uniqueMatches++;
+          // Bônus proporcional ao tamanho da palavra
+          score += (word.length >= 6 ? 150 : 50);
+        }
+      }
+
+      // 3. Bônus por Sequência de Palavras Consecutivas (N-Grams de 2 e 3 palavras)
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
-          const pair = queryWords.slice(i, i + 2).map(escapeRegExp).join('.{0,30}?');
-          if (new RegExp(pair, 'i').test(d.cleanText)) {
-            score += 3000;
+          const pair = queryWords.slice(i, i + 2).join(' ');
+          if (d.cleanText.includes(pair)) {
+            score += 2500;
           }
         }
       }
 
       if (queryWords.length >= 3) {
         for (let i = 0; i <= queryWords.length - 3; i++) {
-          const trio = queryWords.slice(i, i + 3).map(escapeRegExp).join('.{0,50}?');
-          if (new RegExp(trio, 'i').test(d.cleanText)) {
-            score += 6000;
+          const trio = queryWords.slice(i, i + 3).join(' ');
+          if (d.cleanText.includes(trio)) {
+            score += 5000;
           }
         }
       }
 
-      // 3. Chaves Técnicas Especiais (Ex: aspnet_state, allowremoteconnection, HKEY_LOCAL_MACHINE, ORA-01843)
-      const technicalTokens = queryWords.filter(w => /[\\/_\-.:%]/.test(w) || (/\d/.test(w) && w.length >= 3));
-      for (const token of technicalTokens) {
-        if (d.cleanText.includes(token)) {
-          score += 2500;
-        }
-      }
+      // 4. Bônus de Palavras no Título ou Caminho
+      if (d.cleanTitle.includes(cleanQ)) score += 4000;
+      if (d.cleanPath.includes(cleanQ)) score += 2000;
 
-      // 4. Correspondência no Título ou Caminho
-      if (d.cleanTitle.includes(cleanQ)) score += 3000;
-      if (d.cleanPath.includes(cleanQ)) score += 1500;
-
-      // 5. Presença de Palavras Individuais
-      let matchedKeywords = 0;
-      for (const word of queryWords) {
-        if (d.cleanText.includes(word)) {
-          score += (word.length >= 5 ? 100 : 40);
-          matchedKeywords++;
-        }
-      }
-
-      // Multiplicador de Desempenho Exponencial por Coincidência
-      const matchRatio = matchedKeywords / queryWords.length;
-      score = score * Math.pow(matchRatio, 3); // Eleva ao cubo para eliminar resultados irrelevantes
+      // 5. Multiplicador pela Proporção de Palavras Encontradas
+      const matchRatio = uniqueMatches / queryWords.length;
+      score = score * (0.2 + (matchRatio * 0.8)); // Garante pontuação contínua sem zerar buscas longas
 
       return score;
     }
@@ -410,30 +405,29 @@
       if (!rawQuery) return text.substring(0, 650) + (text.length > 650 ? '...' : '');
 
       const cleanQ = cleanText(rawQuery);
-      const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+      const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w));
 
       let matchIndex = -1;
 
-      // Procura primeiro por sequências de termos aproximados
-      if (queryWords.length > 1) {
-        try {
-          const pattern = queryWords.map(w => buildAccentRegex(w).source).join('.{0,40}?');
-          const sloppyRegex = new RegExp(pattern, 'i');
-          const match = sloppyRegex.exec(text);
-          if (match) matchIndex = match.index;
-        } catch (e) {}
+      // Procura primeiro por sequências de 2 ou mais palavras juntas
+      if (queryWords.length >= 2) {
+        for (let i = 0; i <= queryWords.length - 2; i++) {
+          const pair = queryWords.slice(i, i + 2).join(' ');
+          const idx = text.toLowerCase().indexOf(pair);
+          if (idx !== -1) {
+            matchIndex = idx;
+            break;
+          }
+        }
       }
 
       if (matchIndex === -1 && queryWords.length > 0) {
         for (const word of queryWords) {
-          try {
-            const regWord = buildAccentRegex(word);
-            const match = regWord.exec(text);
-            if (match) {
-              matchIndex = match.index;
-              break;
-            }
-          } catch (e) {}
+          const idx = text.toLowerCase().indexOf(word);
+          if (idx !== -1) {
+            matchIndex = idx;
+            break;
+          }
         }
       }
 
@@ -521,55 +515,20 @@
       count.textContent = `${results.length} resultado(s) encontrado(s)`;
     }
 
-    function preprocessImageCanvas(imageSource) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          canvas.width = img.width * 2;
-          canvas.height = img.height * 2;
-
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imgData.data;
-
-          for (let i = 0; i < data.length; i += 4) {
-            const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            const v = avg > 140 ? 255 : 0;
-            data[i] = v;
-            data[i + 1] = v;
-            data[i + 2] = v;
-          }
-
-          ctx.putImageData(imgData, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
-        };
-        img.src = typeof imageSource === 'string' ? imageSource : URL.createObjectURL(imageSource);
-      });
-    }
-
     async function processarImagemOCR(imageSource) {
       ocrStatus.style.display = "block";
-      ocrStatus.textContent = "Otimizando imagem e lendo texto do erro...";
+      ocrStatus.textContent = "Processando imagem do erro via OCR...";
 
       try {
-        const processedImage = await preprocessImageCanvas(imageSource);
         const worker = await Tesseract.createWorker('por');
-
-        await worker.setParameters({
-          tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
-        });
-
-        const ret = await worker.recognize(processedImage);
+        const ret = await worker.recognize(imageSource);
         await worker.terminate();
 
         let rawText = ret.data.text || "";
 
         let cleanTextStr = rawText
           .replace(/[\r\n]+/g, ' ')
-          .replace(/[^a-zA-Z0-9\\/_\-.:% ]/g, ' ')
+          .replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÍÏÓÔÕÖÚ\s]/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
 

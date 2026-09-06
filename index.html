@@ -92,7 +92,7 @@
 
     .snippet a { color: var(--accent); text-decoration: underline; }
 
-    /* Imagens e tratamento de carregamento */
+    /* Imagens e tratamento visual */
     .snippet .img-container {
       display: inline-block;
       margin: 12px 0;
@@ -267,6 +267,10 @@
     }
   }
 
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   if (autenticar()) {
     const DOCS = (typeof DATA !== 'undefined' && DATA.docs) ? DATA.docs : [];
     const grid = document.getElementById('grid');
@@ -279,10 +283,11 @@
       "de", "da", "do", "das", "dos", "ao", "aos", "em", "no", "na", "nos", "nas", 
       "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "não", "foi", 
       "possivel", "there", "was", "no", "at", "que", "ha", "este", "esta", "on", "the",
-      "please", "ensure", "that", "and", "are", "same", "is", "of", "to", "in", "for", "with"
+      "please", "ensure", "that", "and", "are", "same", "is", "of", "to", "in", "for", "with",
+      "server", "error", "application" // Termos genéricos do IIS removidos da relevância individual
     ]);
 
-    // Preserva barras, traços, underlines e pontos essenciais em códigos e caminhos
+    // Sanitiza pontuações soltas nas extremidades das palavras (como "Application.")
     function cleanText(s) {
       if (!s) return '';
       return s
@@ -298,6 +303,7 @@
       const clean = cleanText(text);
       return clean
         .split(' ')
+        .map(w => w.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, '')) // Limpa pontuação colada nas pontas
         .filter(w => w.length >= 2 && !STOP_WORDS.has(w));
     }
 
@@ -329,49 +335,54 @@
 
       let score = 0;
 
-      // 1. Frase Exata Sequencial (Peso Máximo)
+      // 1. Frase Completa ou Trecho Contínuo
       if (cleanQ.length > 5 && d.cleanText.includes(cleanQ)) {
-        score += 10000;
+        score += 15000;
       }
 
-      // 2. Bônus por Densidade/Proximidade (N-Grams / Palavras juntas na mesma frase)
-      if (queryWords.length >= 3) {
-        for (let i = 0; i <= queryWords.length - 3; i++) {
-          const trioPattern = queryWords.slice(i, i + 3)
-            .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-            .join('.{0,80}?');
-          
-          const trioRegex = new RegExp(trioPattern, 'i');
-          if (trioRegex.test(d.cleanText)) {
-            score += 3500;
+      // 2. Pontuação por Pares e Trios de Palavras Consecutivas (N-Grams)
+      if (queryWords.length >= 2) {
+        for (let i = 0; i <= queryWords.length - 2; i++) {
+          const pair = queryWords.slice(i, i + 2).map(escapeRegExp).join('.{0,30}?');
+          if (new RegExp(pair, 'i').test(d.cleanText)) {
+            score += 3000;
           }
         }
       }
 
-      // 3. Pontuação por Preservação de Tokens Técnicos Especiais (\, _, -, ., números)
-      const technicalTokens = queryWords.filter(w => /[\\/_\-.:%]/.test(w) || (/\d/.test(w) && w.length >= 3));
-      for (const token of technicalTokens) {
-        if (d.cleanText.includes(token)) {
-          score += 1500;
+      if (queryWords.length >= 3) {
+        for (let i = 0; i <= queryWords.length - 3; i++) {
+          const trio = queryWords.slice(i, i + 3).map(escapeRegExp).join('.{0,50}?');
+          if (new RegExp(trio, 'i').test(d.cleanText)) {
+            score += 6000;
+          }
         }
       }
 
-      // 4. Coincidência no Título ou Caminho
-      if (d.cleanTitle.includes(cleanQ)) score += 2500;
-      if (d.cleanPath.includes(cleanQ)) score += 1200;
+      // 3. Chaves Técnicas Especiais (Ex: aspnet_state, allowremoteconnection, HKEY_LOCAL_MACHINE, ORA-01843)
+      const technicalTokens = queryWords.filter(w => /[\\/_\-.:%]/.test(w) || (/\d/.test(w) && w.length >= 3));
+      for (const token of technicalTokens) {
+        if (d.cleanText.includes(token)) {
+          score += 2500;
+        }
+      }
 
-      // 5. Presença individual de termos
+      // 4. Correspondência no Título ou Caminho
+      if (d.cleanTitle.includes(cleanQ)) score += 3000;
+      if (d.cleanPath.includes(cleanQ)) score += 1500;
+
+      // 5. Presença de Palavras Individuais
       let matchedKeywords = 0;
       for (const word of queryWords) {
         if (d.cleanText.includes(word)) {
-          score += (word.length >= 5 ? 120 : 50);
+          score += (word.length >= 5 ? 100 : 40);
           matchedKeywords++;
         }
       }
 
-      // 6. Multiplicador de Porcentagem de Coincidência
+      // Multiplicador de Desempenho Exponencial por Coincidência
       const matchRatio = matchedKeywords / queryWords.length;
-      score = score * Math.pow(matchRatio, 2);
+      score = score * Math.pow(matchRatio, 3); // Eleva ao cubo para eliminar resultados irrelevantes
 
       return score;
     }
@@ -389,7 +400,7 @@
         'a': '[aáàâãä]', 'e': '[eéèêë]', 'i': '[iíìîï]',
         'o': '[oóòôõö]', 'u': '[uúùûü]', 'c': '[cç]'
       };
-      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').toLowerCase();
+      const escaped = escapeRegExp(term.toLowerCase());
       const pattern = escaped.split('').map(c => charMap[c] || c).join('');
       return new RegExp(pattern, 'gi');
     }
@@ -403,21 +414,26 @@
 
       let matchIndex = -1;
 
+      // Procura primeiro por sequências de termos aproximados
       if (queryWords.length > 1) {
-        const pattern = queryWords.map(w => buildAccentRegex(w).source).join('.{0,40}?');
-        const sloppyRegex = new RegExp(pattern, 'i');
-        const match = sloppyRegex.exec(text);
-        if (match) matchIndex = match.index;
+        try {
+          const pattern = queryWords.map(w => buildAccentRegex(w).source).join('.{0,40}?');
+          const sloppyRegex = new RegExp(pattern, 'i');
+          const match = sloppyRegex.exec(text);
+          if (match) matchIndex = match.index;
+        } catch (e) {}
       }
 
       if (matchIndex === -1 && queryWords.length > 0) {
         for (const word of queryWords) {
-          const regWord = buildAccentRegex(word);
-          const match = regWord.exec(text);
-          if (match) {
-            matchIndex = match.index;
-            break;
-          }
+          try {
+            const regWord = buildAccentRegex(word);
+            const match = regWord.exec(text);
+            if (match) {
+              matchIndex = match.index;
+              break;
+            }
+          } catch (e) {}
         }
       }
 
@@ -431,8 +447,10 @@
 
       const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
       for (const word of wordsToHighlight) {
-        const regHighlight = buildAccentRegex(word);
-        snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
+        try {
+          const regHighlight = buildAccentRegex(word);
+          snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
+        } catch (e) {}
       }
 
       return snippet;

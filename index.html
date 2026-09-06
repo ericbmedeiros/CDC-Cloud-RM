@@ -307,52 +307,39 @@
 
   let score = 0;
 
-  // 1. Frase exata no texto ou no título (Bônus máximo)
+  // 1. Ocorrência da busca inteira no texto limpo
   if (cleanQ.length > 2 && d.cleanText.includes(cleanQ)) {
-    score += 3000;
+    score += 4000;
   }
 
-  // 2. Intenções específicas conhecidas
-  const isRM = queryWords.includes("rm");
-  const isStartIntent = queryWords.some(w => ["iniciar", "abrir", "acessar", "entrar", "start", "executar", "launcher"].includes(w));
-  if (isRM && isStartIntent && d.cleanTitle.includes("launcher")) {
-    score += 800;
-  }
+  // 2. Coincidência no Título ou Caminho
+  if (d.cleanTitle === cleanQ) score += 2500;
+  else if (d.cleanTitle.includes(cleanQ)) score += 1000;
+  if (d.cleanPath.includes(cleanQ)) score += 500;
 
-  const isJobIntent = queryWords.some(w => ["fila", "processo", "processos", "agendamento", "travada", "travado", "lenta", "relatorio"].includes(w));
-  if (isJobIntent && (d.cleanTitle.includes("jobs") || d.cleanTitle.includes("cockpit") || d.cleanPath.includes("jobs"))) {
-    score += 600;
-  }
-
-  // 3. Casamentos diretos no Título ou Caminho
-  if (d.cleanTitle === cleanQ) score += 2000;
-  else if (d.cleanTitle.includes(cleanQ)) score += 800;
-  if (d.cleanPath.includes(cleanQ)) score += 400;
-
-  // 4. Pontuação proporcional ao percentual de palavras encontradas
+  // 3. Avaliação por palavras-chave relevantes encontradas
   let matchedKeywords = 0;
   for (const word of queryWords) {
     if (d.titleKeywords.includes(word)) {
-      score += 250;
+      score += 300;
       matchedKeywords++;
     } else if (d.cleanPath.includes(word)) {
-      score += 150;
+      score += 180;
       matchedKeywords++;
     } else if (d.cleanText.includes(word)) {
-      score += 50;
+      score += 100; // Aumentado o peso individual de cada palavra encontrada no texto
       matchedKeywords++;
     }
   }
 
-  // Bônus exponencial se encontrar MULTIPLAS palavras da busca no mesmo documento
+  // 4. Bônus por combinação de múltiplos termos (ex: 'valor' + 'minimo' + 'aprovação' + 'automática')
   const matchRatio = matchedKeywords / queryWords.length;
   if (matchRatio === 1) {
-    score += 1500; // 100% das palavras encontradas
+    score += 2000; // Todas as palavras da busca estao presentes no documento
+  } else if (matchRatio >= 0.75) {
+    score += 1000; // Pelo menos 75% das palavras encontradas
   } else if (matchRatio >= 0.5) {
-    score += 500;  // Pelo menos metade das palavras
-  } else {
-    // Se encontrou apenas 1 palavra de uma busca longa, reduz a pontuação para não atropelar resultados melhores
-    score = score * 0.2;
+    score += 400;  // Metade das palavras encontradas
   }
 
   return score;

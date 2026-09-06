@@ -119,16 +119,26 @@ async function getBlockContent(blockId) {
 
         const btype = block.type;
         if (block[btype]) {
+          // Processa textos com links formatados em Markdown [Texto](URL)
           if (block[btype].rich_text && Array.isArray(block[btype].rich_text)) {
-            text += "\n" + block[btype].rich_text.map(t => t.plain_text).join("");
+            const blockContent = block[btype].rich_text.map(t => {
+              if (t.href) {
+                return `[${t.plain_text}](${t.href})`;
+              }
+              return t.plain_text;
+            }).join("");
+
+            text += "\n" + blockContent;
             subPageIds.push(...extractIdsFromRichText(block[btype].rich_text));
           }
+
           if (block[btype].title && Array.isArray(block[btype].title)) {
             text += "\n" + block[btype].title.map(t => t.plain_text).join("");
             subPageIds.push(...extractIdsFromRichText(block[btype].title));
           }
         }
 
+        // Leitura de Toggles e blocos filhos
         if (block.has_children) {
           const inner = await getBlockContent(block.id);
           text += "\n" + inner.text;

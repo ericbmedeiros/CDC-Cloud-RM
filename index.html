@@ -69,21 +69,21 @@
     .card h3 a { color: var(--accent); text-decoration: none; }
     .card h3 a:hover { opacity: 0.85; }
     
-    /* Balão de conteúdo com altura máxima reduzida e rolagem interna */
-.snippet { 
-  color: var(--muted); 
-  font-size: 14px; 
-  line-height: 1.6; 
-  margin-top: 10px; 
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 500px;       /* Ajustado para 450px */
-  overflow-y: auto;        /* Rolagem interna */
-  background: rgba(0,0,0,0.25);
-  padding: 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.06);
-}
+    /* Balão de conteúdo com altura máxima ajustada para 500px e rolagem interna */
+    .snippet { 
+      color: var(--muted); 
+      font-size: 14px; 
+      line-height: 1.6; 
+      margin-top: 10px; 
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 500px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.25);
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
 
     .snippet a {
       color: var(--accent);
@@ -129,7 +129,7 @@
     .snippet::-webkit-scrollbar-thumb { background: rgba(90, 167, 255, 0.3); border-radius: 4px; }
 
     mark { 
-      background: rgba(90, 167, 255, 0.2); 
+      background: rgba(90, 167, 255, 0.25); 
       color: #5aa7ff; 
       font-weight: bold; 
       padding: 2px 5px; 
@@ -300,50 +300,63 @@
     });
 
     function getScore(d, rawQuery) {
-  if (!rawQuery) return 0;
-  const cleanQ = cleanText(rawQuery);
-  const queryWords = getKeywords(rawQuery);
-  if (queryWords.length === 0) return 0;
+      if (!rawQuery) return 0;
+      const cleanQ = cleanText(rawQuery);
+      const queryWords = getKeywords(rawQuery);
+      if (queryWords.length === 0) return 0;
 
-  let score = 0;
+      let score = 0;
 
-  // 1. Ocorrência da busca inteira no texto limpo
-  if (cleanQ.length > 2 && d.cleanText.includes(cleanQ)) {
-    score += 4000;
-  }
+      // 1. Frase Exata no texto limpo
+      if (cleanQ.length > 2 && d.cleanText.includes(cleanQ)) {
+        score += 5000;
+      }
 
-  // 2. Coincidência no Título ou Caminho
-  if (d.cleanTitle === cleanQ) score += 2500;
-  else if (d.cleanTitle.includes(cleanQ)) score += 1000;
-  if (d.cleanPath.includes(cleanQ)) score += 500;
+      // 2. Busca por Proximidade de Frase (Sloppy Match / Regex tolerando conectivos entre termos)
+      if (queryWords.length > 1) {
+        const pattern = queryWords.join('.{0,30}?');
+        const sloppyRegex = new RegExp(pattern, 'i');
+        if (sloppyRegex.test(d.cleanText)) {
+          score += 3500;
+        }
+      }
 
-  // 3. Avaliação por palavras-chave relevantes encontradas
-  let matchedKeywords = 0;
-  for (const word of queryWords) {
-    if (d.titleKeywords.includes(word)) {
-      score += 300;
-      matchedKeywords++;
-    } else if (d.cleanPath.includes(word)) {
-      score += 180;
-      matchedKeywords++;
-    } else if (d.cleanText.includes(word)) {
-      score += 100; // Aumentado o peso individual de cada palavra encontrada no texto
-      matchedKeywords++;
+      // 3. Coincidência no Título ou Caminho
+      if (d.cleanTitle === cleanQ) score += 3000;
+      else if (d.cleanTitle.includes(cleanQ)) score += 1200;
+      if (d.cleanPath.includes(cleanQ)) score += 600;
+
+      // 4. Avaliação por frequência e especificidade de palavras-chave encontradas
+      let matchedKeywords = 0;
+      for (const word of queryWords) {
+        if (d.titleKeywords.includes(word)) {
+          score += 400;
+          matchedKeywords++;
+        } else if (d.cleanPath.includes(word)) {
+          score += 200;
+          matchedKeywords++;
+        } else if (d.cleanText.includes(word)) {
+          // Palavras mais longas/específicas recebem mais peso
+          score += (word.length >= 6 ? 150 : 80);
+          matchedKeywords++;
+        }
+      }
+
+      // 5. Bônus por porcentagem de termos combinados
+      const matchRatio = matchedKeywords / queryWords.length;
+      if (matchRatio === 1) {
+        score += 2500; // 100% dos termos relevantes presentes
+      } else if (matchRatio >= 0.75) {
+        score += 1200;
+      } else if (matchRatio >= 0.5) {
+        score += 500;
+      } else {
+        // Se encontrou apenas 1 palavra de uma busca com 3 ou mais termos, reduz peso para evitar falso positivo
+        score = score * 0.3;
+      }
+
+      return score;
     }
-  }
-
-  // 4. Bônus por combinação de múltiplos termos (ex: 'valor' + 'minimo' + 'aprovação' + 'automática')
-  const matchRatio = matchedKeywords / queryWords.length;
-  if (matchRatio === 1) {
-    score += 2000; // Todas as palavras da busca estao presentes no documento
-  } else if (matchRatio >= 0.75) {
-    score += 1000; // Pelo menos 75% das palavras encontradas
-  } else if (matchRatio >= 0.5) {
-    score += 400;  // Metade das palavras encontradas
-  }
-
-  return score;
-}
 
     function getParentPathOnly(doc) {
       const fullPath = doc.path || doc.title || '';
@@ -374,12 +387,15 @@
 
       let matchIndex = -1;
 
-      if (cleanQ.length > 2) {
-        const regFrase = buildAccentRegex(cleanQ);
-        const match = regFrase.exec(text);
+      // 1. Procura ocorrência da frase ou sequência aproximada dos termos
+      if (queryWords.length > 1) {
+        const pattern = queryWords.map(w => buildAccentRegex(w).source).join('.{0,40}?');
+        const sloppyRegex = new RegExp(pattern, 'i');
+        const match = sloppyRegex.exec(text);
         if (match) matchIndex = match.index;
       }
 
+      // 2. Se não encontrou a sequência aproximada, procura a primeira palavra individual da busca
       if (matchIndex === -1 && queryWords.length > 0) {
         for (const word of queryWords) {
           const regWord = buildAccentRegex(word);
@@ -395,11 +411,12 @@
         return text.substring(0, 650) + (text.length > 650 ? '...' : '');
       }
 
-     // Ajustado para 1700 caracteres totais (60 antes + 1640 depois)
-  const start = Math.max(0, matchIndex - 60);
-  const end = Math.min(text.length, matchIndex + 2000);
-  let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+      // Janela de 1700 caracteres totais (60 antes + 1640 depois)
+      const start = Math.max(0, matchIndex - 60);
+      const end = Math.min(text.length, matchIndex + 1640);
+      let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
 
+      // Aplica a tag <mark> azul de destaque nos termos encontrados no snippet
       const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
       for (const word of wordsToHighlight) {
         const regHighlight = buildAccentRegex(word);
@@ -410,24 +427,24 @@
     }
 
     function formatSnippetText(snippetHtml) {
-  if (!snippetHtml) return '';
+      if (!snippetHtml) return '';
 
-  // 1. Converte miniaturas de imagens
-  let formatted = snippetHtml.replace(
-    /!\[Imagem\]\(([^)]+)\)/g,
-    '<img src="$1" alt="Preview" onclick="ampliarImagem(\'$1\')" title="Clique para ampliar" />'
-  );
+      // 1. Converte miniaturas de imagens localizadas na pasta ./assets/ ou URLs remotas
+      let formatted = snippetHtml.replace(
+        /!\[Imagem\]\(([^)]+)\)/g,
+        '<img src="$1" alt="Preview" onclick="ampliarImagem(\'$1\')" title="Clique para ampliar" />'
+      );
 
-  // 2. Converte links em formato Markdown [Texto](URL)
-  formatted = formatted.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener">$1</a>'
-  );
+      // 2. Converte links em formato Markdown [Texto](URL)
+      formatted = formatted.replace(
+        /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener">$1</a>'
+      );
 
-  // 3. Converte URLs simples que iniciam com https://
-  const urlRegex = /(?<!href=")(?<!src=")(https?:\/\/[^\s<)]+)/g;
-  return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-}
+      // 3. Converte URLs simples que iniciam com https://
+      const urlRegex = /(?<!href=")(?<!src=")(https?:\/\/[^\s<)]+)/g;
+      return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    }
 
     function render() {
       const rawQuery = q.value.trim();
@@ -498,7 +515,7 @@
         if (textoLido.length > 0) {
           q.value = textoLido;
           render();
-          ocrStatus.textContent = "Texto extraído da imagem e aplicado na busca!";
+          ocrStatus.textContent = "Texto extraído da imagem e applied na busca!";
         } else {
           ocrStatus.textContent = "Nenhum texto legível relevante foi encontrado na imagem.";
         }

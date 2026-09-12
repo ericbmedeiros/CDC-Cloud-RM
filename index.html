@@ -51,7 +51,7 @@
       align-items: center;
     }
 
-    input[type="text"].search-box { 
+    input.search-box { 
       width: 100%; 
       background: var(--card); 
       color: var(--text); 
@@ -274,41 +274,40 @@
       padding-right: 6px;
     }
 
-    /* Borda verde para facilitar a diferenciacao visual dos cartoes de sugestao */
     .fb-item-card {
       background: #0b0f19;
-      border: 1px solid var(--breadcrumb-green);
+      border: 1px solid var(--accent);
       border-radius: 10px;
       padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      box-shadow: 0 0 10px rgba(32, 201, 151, 0.1);
+      box-shadow: 0 0 10px rgba(90, 167, 255, 0.15);
     }
 
     .fb-item-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid rgba(32, 201, 151, 0.2);
+      border-bottom: 1px solid rgba(90, 167, 255, 0.2);
       padding-bottom: 8px;
     }
 
     .fb-tag {
-      background: rgba(32, 201, 151, 0.15);
-      color: var(--breadcrumb-green);
+      background: rgba(90, 167, 255, 0.15);
+      color: var(--accent);
       padding: 3px 8px;
       border-radius: 4px;
       font-size: 11px;
       font-weight: 700;
-      border: 1px solid rgba(32, 201, 151, 0.3);
+      border: 1px solid rgba(90, 167, 255, 0.3);
     }
 
     .fb-author {
       color: #e8eefc;
       font-size: 12px;
       font-weight: 600;
-      margin-top: 2px;
+      margin-top: 4px;
     }
 
     .fb-date {
@@ -521,7 +520,15 @@
 
       let score = 0;
 
-      // PONTUAÇÃO DE PRECEDÊNCIA MÁXIMA SE AS PALAVRAS COINCIDIREM COM O TÍTULO
+      if (queryWords.length >= 2) {
+        for (let i = 0; i <= queryWords.length - 2; i++) {
+          const pair = queryWords.slice(i, i + 2).join(' ');
+          if (d.cleanTitle.includes(pair)) {
+            score += 1000000000;
+          }
+        }
+      }
+
       let titleMatchedWords = 0;
       for (const word of queryWords) {
         if (d.cleanTitle.includes(word)) {
@@ -530,20 +537,10 @@
       }
 
       const ratioTitle = titleMatchedWords / queryWords.length;
-      if (ratioTitle >= 0.25) {
-        score += Math.pow(titleMatchedWords, 4) * 50000000;
+      if (ratioTitle >= 0.2) {
+        score += Math.pow(titleMatchedWords, 4) * 10000000;
       }
 
-      if (queryWords.length >= 3) {
-        for (let i = 0; i <= queryWords.length - 3; i++) {
-          const trio = queryWords.slice(i, i + 3).join(' ');
-          if (d.cleanTitle.includes(trio)) {
-            score += 500000000;
-          }
-        }
-      }
-
-      // CORPO DO TEXTO
       if (cleanQ.length > 5 && d.cleanText.includes(cleanQ)) {
         score += 10000;
       }
@@ -804,17 +801,11 @@
       });
     }
 
-    // Acao manual do Botao X para limpar o input sem recarregar a pagina
-    btnClearSearch.onclick = function(e) {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+    btnClearSearch.onclick = function() {
       q.value = '';
       btnClearSearch.style.display = 'none';
       render();
       q.focus();
-      return false;
     };
 
     q.addEventListener('input', render);
@@ -928,12 +919,15 @@
       return;
     }
 
+    // Invertida a posicao: Etiqueta + Titulo na primeira linha; Enviado por na linha abaixo
     container.innerHTML = feedbacks.map(item => `
       <div class="fb-item-card" id="item-${item.id}">
         <div class="fb-item-header">
           <div>
-            <span class="fb-tag">${item.tipo}</span>
-            <strong style="margin-left: 8px; font-size: 13px;">${item.doc}</strong>
+            <div>
+              <span class="fb-tag">${item.tipo}</span>
+              <strong style="margin-left: 8px; font-size: 13px;">${item.doc}</strong>
+            </div>
             <div class="fb-author">👤 Enviado por: ${item.autor}</div>
           </div>
           <span class="fb-date">${item.data}</span>
@@ -954,7 +948,6 @@
     try {
       const clone = contentDiv.cloneNode(true);
 
-      // Substitui imagens pela tag simplificada [ Imagem ]
       const imgs = clone.querySelectorAll('img');
       imgs.forEach(img => {
         const marker = document.createElement('div');

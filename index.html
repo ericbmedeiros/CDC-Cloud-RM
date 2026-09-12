@@ -42,9 +42,47 @@
     }
     .btn-action:hover { background: #223250; border-color: rgba(90, 167, 255, 0.4); }
 
-    .searchRow { display: flex; gap: 10px; margin-top: 12px; align-items: center; }
-    input[type="search"] { flex: 1; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; outline: none; font-size: 15px; }
+    .searchRow { display: flex; gap: 10px; margin-top: 12px; align-items: center; position: relative; }
     
+    .search-input-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    input[type="search"] { 
+      width: 100%; 
+      background: var(--card); 
+      color: var(--text); 
+      border: 1px solid var(--border); 
+      border-radius: 10px; 
+      padding: 12px 38px 12px 14px; 
+      outline: none; 
+      font-size: 15px; 
+    }
+
+    /* Remove o X padrao inconsistente do navegador */
+    input[type="search"]::-webkit-search-decoration,
+    input[type="search"]::-webkit-search-cancel-button,
+    input[type="search"]::-webkit-search-results-button,
+    input[type="search"]::-webkit-search-results-decoration {
+      display: none;
+    }
+
+    .btn-clear-search {
+      position: absolute;
+      right: 12px;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 16px;
+      cursor: pointer;
+      display: none;
+      padding: 4px;
+    }
+    .btn-clear-search:hover { color: var(--text); }
+
     #fileInput { display: none; }
 
     main { padding: 18px 0 40px; }
@@ -313,7 +351,10 @@
       </div>
     </div>
     <div class="searchRow">
-      <input id="q" type="search" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
+      <div class="search-input-wrapper">
+        <input id="q" type="search" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
+        <button class="btn-clear-search" id="btnClearSearch" title="Limpar busca">&times;</button>
+      </div>
       <button class="btn-action" onclick="document.getElementById('fileInput').click()">
         📷 Anexar Print
       </button>
@@ -418,6 +459,7 @@
     const DOCS = (typeof DATA !== 'undefined' && DATA.docs) ? DATA.docs : [];
     const grid = document.getElementById('grid');
     const q = document.getElementById('q');
+    const btnClearSearch = document.getElementById('btnClearSearch');
     const count = document.getElementById('count');
     const fileInput = document.getElementById('fileInput');
     const ocrStatus = document.getElementById('ocrStatus');
@@ -471,8 +513,8 @@
 
     const fuse = new Fuse(searchDocs, {
       keys: [
-        { name: 'title', weight: 0.8 },
-        { name: 'text', weight: 0.2 }
+        { name: 'title', weight: 0.9 },
+        { name: 'text', weight: 0.1 }
       ],
       threshold: 0.3,
       ignoreLocation: true,
@@ -488,9 +530,9 @@
 
       let score = 0;
 
-      // PONTUAÇÃO MASSIVA PARA TÍTULO
+      // PONTUAÇÃO MÁXIMA PARA CORRESPONDÊNCIA NO TÍTULO
       if (cleanQ.length > 3 && d.cleanTitle.includes(cleanQ)) {
-        score += 80000;
+        score += 500000;
       }
 
       let titleMatches = 0;
@@ -500,12 +542,12 @@
         }
       }
       if (titleMatches > 0) {
-        score += (titleMatches / queryWords.length) * 50000;
+        score += (titleMatches / queryWords.length) * 200000;
       }
 
       // CORPO DO TEXTO (EXCLUINDO LINKS DA CONTAGEM)
       if (cleanQ.length > 3 && d.cleanText.includes(cleanQ)) {
-        score += 25000;
+        score += 10000;
       }
 
       let maxWordsInWindow = 0;
@@ -537,29 +579,29 @@
 
       const totalMatchedDensity = maxWordsInWindow + maxStemsInWindow;
       if (totalMatchedDensity >= 2) {
-        score += Math.pow(totalMatchedDensity, 3) * 2000;
+        score += Math.pow(totalMatchedDensity, 3) * 1000;
       }
 
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
           const pair = queryWords.slice(i, i + 2).join(' ');
           if (d.cleanText.includes(pair)) {
-            score += 3000;
+            score += 1500;
           }
         }
       }
 
-      if (d.cleanPath.includes(cleanQ)) score += 3000;
+      if (d.cleanPath.includes(cleanQ)) score += 1500;
 
       let uniqueMatches = 0;
       for (const word of queryWords) {
         if (d.cleanText.includes(word)) {
-          score += 30;
+          score += 20;
           uniqueMatches++;
         } else {
           const stem = getStem(word);
           if (stem.length >= 4 && d.cleanText.includes(stem)) {
-            score += 15;
+            score += 10;
             uniqueMatches += 0.7;
           }
         }
@@ -688,6 +730,8 @@
 
     function render() {
       const rawQuery = q.value.trim();
+      btnClearSearch.style.display = rawQuery ? 'block' : 'none';
+
       let results = [];
 
       if (!rawQuery) {
@@ -787,7 +831,6 @@
       }
     });
 
-    // Evento de colagem de imagens no editor de feedback
     const fbEditor = document.getElementById('fbEditor');
     if (fbEditor) {
       fbEditor.addEventListener('paste', (e) => {
@@ -803,9 +846,10 @@
       });
     }
 
-    // Tratamento para limpar a pesquisa no X mantendo o usuário na mesma página
-    q.addEventListener('search', () => {
+    btnClearSearch.addEventListener('click', () => {
+      q.value = '';
       render();
+      q.focus();
     });
 
     q.addEventListener('input', render);
@@ -938,28 +982,42 @@
     `).join('');
   }
 
-  function copiarItemNotion(id) {
+  function base64ToBlob(base64, mimeType = 'image/png') {
+    const byteCharacters = atob(base64.split(',')[1]);
+    const byteArrays = [];
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    return new Blob(byteArrays, { type: mimeType });
+  }
+
+  async function copiarItemNotion(id) {
     const contentDiv = document.getElementById(`content-${id}`);
     if (!contentDiv) return;
 
+    const imgEl = contentDiv.querySelector('img');
+
     try {
-      const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(contentDiv);
-      selection.removeAllRanges();
-      selection.addRange(range);
-
-      const sucesso = document.execCommand('copy');
-      selection.removeAllRanges();
-
-      if (sucesso) {
-        alert("Texto e imagem copiados com sucesso! Pressione Ctrl+V direto no Notion.");
+      if (imgEl && imgEl.src.startsWith('data:image')) {
+        // Converte a imagem Base64 em Blob e copia a imagem nativa PNG para o clipboard
+        const blob = base64ToBlob(imgEl.src, 'image/png');
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        alert("Imagem copiada com sucesso! Cole no Notion (Ctrl+V) e copie o texto em seguida.");
       } else {
-        alert("Não foi possível copiar automaticamente. Tente selecionar o texto manualmente.");
+        await navigator.clipboard.writeText(contentDiv.innerText.trim());
+        alert("Texto copiado! Cole no Notion (Ctrl+V).");
       }
     } catch (err) {
       console.error(err);
-      alert("Erro ao copiar o conteúdo.");
+      alert("Erro ao acessar a área de transferência.");
     }
   }
 

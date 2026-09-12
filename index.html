@@ -80,6 +80,7 @@
       display: none;
       padding: 4px;
       line-height: 1;
+      z-index: 5;
     }
     .btn-clear-search:hover { color: var(--text); }
 
@@ -347,7 +348,7 @@
     <div class="searchRow">
       <div class="search-input-wrapper">
         <input id="q" type="search" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
-        <button class="btn-clear-search" id="btnClearSearch" title="Limpar busca">&times;</button>
+        <button type="button" class="btn-clear-search" id="btnClearSearch" title="Limpar busca">&times;</button>
       </div>
       <button class="btn-action" onclick="document.getElementById('fileInput').click()">
         📷 Anexar Print
@@ -507,8 +508,8 @@
 
     const fuse = new Fuse(searchDocs, {
       keys: [
-        { name: 'cleanTitle', weight: 0.98 },
-        { name: 'cleanText', weight: 0.02 }
+        { name: 'cleanTitle', weight: 0.99 },
+        { name: 'cleanText', weight: 0.01 }
       ],
       threshold: 0.4,
       ignoreLocation: true,
@@ -524,26 +525,21 @@
 
       let score = 0;
 
-      // ALGORITMO DE PESO ABSOLUTO PARA TÍTULO
-      let titleMatches = 0;
+      // PONTUAÇÃO MÁXIMA ABSOLUTA SE AS PALAVRAS PRINCIPAIS CASAREM COM O TÍTULO
+      let titleMatchedWords = 0;
       for (const word of queryWords) {
         if (d.cleanTitle.includes(word)) {
-          titleMatches++;
+          titleMatchedWords++;
         }
       }
 
-      if (titleMatches >= 3) {
-        score += (titleMatches / queryWords.length) * 10000000;
+      const ratioTitle = titleMatchedWords / queryWords.length;
+      if (ratioTitle >= 0.4) {
+        score += ratioTitle * 50000000;
       }
 
-      // Pontuação de frases encadeadas no título
-      if (queryWords.length >= 2) {
-        for (let i = 0; i <= queryWords.length - 2; i++) {
-          const pair = queryWords.slice(i, i + 2).join(' ');
-          if (d.cleanTitle.includes(pair)) {
-            score += 2000000;
-          }
-        }
+      if (cleanQ.length > 5 && d.cleanTitle.includes(cleanQ)) {
+        score += 100000000;
       }
 
       // CORPO DO TEXTO
@@ -807,14 +803,17 @@
       });
     }
 
-    btnClearSearch.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+    btnClearSearch.onclick = function(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       q.value = '';
       btnClearSearch.style.display = 'none';
       render();
       q.focus();
-    });
+      return false;
+    };
 
     q.addEventListener('input', render);
     count.textContent = `${DOCS.length} documentações carregadas.`;
@@ -953,9 +952,13 @@
     try {
       const clone = contentDiv.cloneNode(true);
 
-      // Substitui elementos de bloco e imagens por quebras de linha estritas
+      // Substitui imagens por marcadores de espacamento limpos
       const imgs = clone.querySelectorAll('img');
-      imgs.forEach(img => img.remove());
+      imgs.forEach(img => {
+        const marker = document.createElement('div');
+        marker.textContent = '\n\n[ Print / Imagem ]\n\n';
+        img.replaceWith(marker);
+      });
 
       const blocks = clone.querySelectorAll('div, p, br, li');
       blocks.forEach(b => {
@@ -970,13 +973,8 @@
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 
-      if (!textoLimpo) {
-        alert("Esta sugestão possui apenas imagens.");
-        return;
-      }
-
       await navigator.clipboard.writeText(textoLimpo);
-      alert("✅ Texto e estrutura de linhas copiados com sucesso! Pressione Ctrl+V no Notion.");
+      alert("✅ Texto e espacamentos de imagem copiados com sucesso! Pressione Ctrl+V no Notion.");
     } catch (err) {
       console.error(err);
       alert("Erro ao copiar o texto.");

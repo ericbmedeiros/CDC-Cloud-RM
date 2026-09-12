@@ -92,7 +92,6 @@
 
     .snippet a { color: var(--accent); text-decoration: underline; }
 
-    /* Redução de espaçamento das miniaturas de imagem */
     .snippet .img-container {
       display: inline-block;
       margin: 4px 0 8px 0;
@@ -100,8 +99,8 @@
     }
 
     .snippet img {
-      max-width: 280px;
-      max-height: 180px;
+      max-width: 380px;
+      max-height: 240px;
       object-fit: cover;
       display: block;
       border-radius: 8px;
@@ -128,7 +127,6 @@
     .img-container.img-failed img { display: none; }
     .img-container.img-failed .img-fallback-msg { display: block; }
 
-    /* Modal de Zoom */
     .img-modal-backdrop {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(6px);
@@ -147,7 +145,6 @@
     .snippet::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
     .snippet::-webkit-scrollbar-thumb { background: rgba(90, 167, 255, 0.3); border-radius: 4px; }
 
-    /* Destaque padronizado e limpo */
     mark { 
       background: rgba(90, 167, 255, 0.25); 
       color: #5aa7ff; 
@@ -215,7 +212,6 @@
   </div>
 </main>
 
-<!-- Modal de Feedback -->
 <div class="modal-backdrop" id="modalFeedback">
   <div class="modal-box">
     <div class="modal-header">
@@ -242,7 +238,6 @@
   </div>
 </div>
 
-<!-- Modal para Ampliar Imagens -->
 <div class="img-modal-backdrop" id="imgModal" onclick="fecharModalImagem()">
   <img class="img-modal-content" id="imgModalSrc" src="" alt="Imagem Ampliada" />
 </div>
@@ -281,7 +276,6 @@
     const fileInput = document.getElementById('fileInput');
     const ocrStatus = document.getElementById('ocrStatus');
 
-    // Termos essenciais como "nao" foram mantidos para buscas como "centavos nao aparecem"
     const STOP_WORDS = new Set([
       "de", "da", "do", "das", "dos", "ao", "aos", "em", "na", "nos", "nas", 
       "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "foi", 
@@ -339,12 +333,10 @@
 
       let score = 0;
 
-      // 1. Frase Exata Sequencial
       if (cleanQ.length > 3 && d.cleanText.includes(cleanQ)) {
         score += 35000;
       }
 
-      // 2. Pontuação por Densidade de Palavras/Radicais na mesma janela de texto
       let maxWordsInWindow = 0;
       let maxStemsInWindow = 0;
       const windowSize = 250;
@@ -377,7 +369,6 @@
         score += Math.pow(totalMatchedDensity, 3) * 2500;
       }
 
-      // 3. Sequências de N-Grams (2 e 3 palavras ou radicais consecutivos)
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
           const pair = queryWords.slice(i, i + 2).join(' ');
@@ -392,11 +383,9 @@
         }
       }
 
-      // 4. Coincidência no Título ou Caminho
       if (d.cleanTitle.includes(cleanQ)) score += 5000;
       if (d.cleanPath.includes(cleanQ)) score += 2500;
 
-      // 5. Contagem individual de termos
       let uniqueMatches = 0;
       for (const word of queryWords) {
         if (d.cleanText.includes(word)) {
@@ -438,7 +427,6 @@
     function formatSnippetText(snippetText) {
       if (!snippetText) return '';
 
-      // 1. Converte miniaturas de imagens
       let formatted = snippetText.replace(
         /!\[Imagem\]\(([^)]+)\)/g,
         `<div class="img-container">
@@ -451,18 +439,15 @@
          </div>`
       );
 
-      // 2. Converte links em formato Markdown [Texto](URL)
       formatted = formatted.replace(
         /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
         '<a href="$2" target="_blank" rel="noopener">$1</a>'
       );
 
-      // 3. Converte URLs simples que iniciam com https://
       const urlRegex = /(?<!href=")(?<!src=")(https?:\/\/[^\s<)]+)/g;
       return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     }
 
-    // Aplica a marcacao apenas no conteudo textual, preservando tags HTML e atibutos href/src
     function highlightSnippetHtml(htmlContent, rawQuery) {
       if (!htmlContent || !rawQuery) return htmlContent;
 
@@ -475,7 +460,7 @@
         try {
           const regHighlight = buildAccentRegex(word);
           highlighted = highlighted.replace(/(<[^>]+>)|([^<]+)/g, (match, tag, text) => {
-            if (tag) return tag; // Preserva atributos href e src
+            if (tag) return tag;
             return text.replace(regHighlight, '<mark>$&</mark>');
           });
         } catch (e) {}
@@ -493,18 +478,24 @@
 
       let matchIndex = -1;
 
-      // Encontra a janela com a maior densidade de palavras da busca
+      // 1. Procura primeiro por ocorrencia em linhas de Titulo ou Texto limpo (fora de URLs de links)
       if (queryWords.length >= 2) {
         let bestCount = 0;
         const windowSize = 250;
         for (let i = 0; i < text.length - windowSize; i += 30) {
-          const slice = text.substring(i, i + windowSize).toLowerCase();
+          const slice = text.substring(i, i + windowSize);
+          
+          // Se o trecho for um link HTTP/HTTPS puro, reduz prioridade para nao ancorar na URL
+          const isUrl = /^https?:\/\//i.test(slice.trim());
+          if (isUrl) continue;
+
           let count = 0;
+          const lowerSlice = slice.toLowerCase();
           for (const w of queryWords) {
-            if (slice.includes(w)) count++;
+            if (lowerSlice.includes(w)) count++;
             else {
               const st = getStem(w);
-              if (st.length >= 4 && slice.includes(st)) count += 0.5;
+              if (st.length >= 4 && lowerSlice.includes(st)) count += 0.5;
             }
           }
           if (count > bestCount) {
@@ -528,11 +519,11 @@
         return formatSnippetText(text.substring(0, 650) + (text.length > 650 ? '...' : ''));
       }
 
-      const start = Math.max(0, matchIndex - 40);
-      const end = Math.min(text.length, matchIndex + 1660);
+      // Janela superior expandida para 180 caracteres antes do ponto de corte, trazendo titulos de erros e imagens acima
+      const start = Math.max(0, matchIndex - 180);
+      const end = Math.min(text.length, matchIndex + 1620);
       let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
 
-      // Converte HTML primeiro e depois aplica o highlight seguro
       const formattedHtml = formatSnippetText(snippet);
       return highlightSnippetHtml(formattedHtml, rawQuery);
     }

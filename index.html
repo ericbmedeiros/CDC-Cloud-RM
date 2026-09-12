@@ -247,22 +247,20 @@
 <script src="./docs.js"></script>
 
 <script>
-  // Hash numérico síncrono para ocultar a senha no código-fonte
-  const HASH_SENHA = "114|101|100|111|110|100|111";
-
-  function stringParaHash(str) {
-    return str.trim().toLowerCase().split('').map(c => c.charCodeAt(0)).join('|');
-  }
+  // Ofuscação de segurança para ocultar a palavra no código do GitHub
+  const HASH_SESSAO = "cmVkb25kbw==";
 
   function autenticar() {
     const acessoSalvo = sessionStorage.getItem("acesso_central_cloud");
-    if (acessoSalvo === HASH_SENHA) return true;
+    if (acessoSalvo === HASH_SESSAO) return true;
 
     const senhaDigitada = prompt("Central de Conhecimento - Suporte Cloud (RM)\n\nPor favor, digite a senha de acesso:");
-    if (senhaDigitada && stringParaHash(senhaDigitada) === HASH_SENHA) {
-      sessionStorage.setItem("acesso_central_cloud", HASH_SENHA);
+    
+    if (senhaDigitada && btoa(senhaDigitada.trim().toLowerCase()) === HASH_SESSAO) {
+      sessionStorage.setItem("acesso_central_cloud", HASH_SESSAO);
       return true;
     } else {
+      sessionStorage.removeItem("acesso_central_cloud");
       alert("Senha incorreta! Acesso negado.");
       document.body.innerHTML = "<h2 style='color:white; text-align:center; margin-top:50px;'>Acesso negado. Recarregue a página para tentar novamente.</h2>";
       return false;

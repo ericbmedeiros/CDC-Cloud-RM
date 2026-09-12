@@ -293,17 +293,17 @@
       padding-bottom: 8px;
     }
 
-    .fb-header-line1 {
+    .fb-header-left {
       display: flex;
-      align-items: center;
-      gap: 10px;
+      flex-direction: column;
+      gap: 6px;
     }
 
-    .fb-header-line2 {
-      margin-top: 4px;
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text);
+    .fb-header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
     }
 
     .fb-tag {
@@ -317,11 +317,16 @@
       display: inline-block;
     }
 
+    .fb-doc-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
     .fb-author {
       color: #e8eefc;
       font-size: 12px;
       font-weight: 600;
-      display: inline-block;
     }
 
     .fb-date {
@@ -534,12 +539,12 @@
 
       let score = 0;
 
-      // PONTUAÇÃO DE ORDENAÇÃO DE TÍTULO ABSOLUTA
+      // PONTUAÇÃO MÁXIMA DE SEQUÊNCIA DE TÍTULO
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
           const pair = queryWords.slice(i, i + 2).join(' ');
           if (d.cleanTitle.includes(pair)) {
-            score += 1000000000;
+            score += 2000000000;
           }
         }
       }
@@ -553,7 +558,7 @@
 
       const ratioTitle = titleMatchedWords / queryWords.length;
       if (ratioTitle >= 0.2) {
-        score += Math.pow(titleMatchedWords, 4) * 10000000;
+        score += Math.pow(titleMatchedWords, 4) * 20000000;
       }
 
       // CORPO DO TEXTO
@@ -817,13 +822,13 @@
       });
     }
 
-    // Clique limpo do botao X
-    btnClearSearch.addEventListener('click', function(evt) {
+    // Clique limpo do botao X sem recarregar pagina
+    btnClearSearch.onclick = function() {
       q.value = '';
       btnClearSearch.style.display = 'none';
       render();
       q.focus();
-    });
+    };
 
     q.addEventListener('input', render);
     count.textContent = `${DOCS.length} documentações carregadas.`;
@@ -936,20 +941,20 @@
       return;
     }
 
-    // Estrutura solicitada:
-    // Linha 1: Tag + Enviado por
-    // Linha 2: Nome da documentação relacionada
+    // Layout Solicitado:
+    // Esquerda: Tag (Linha 1) -> Nome da Documentação (Linha 2 ampliado)
+    // Direita: Data/Hora (Linha 1) -> Enviado por (Linha 2 alinhado no canto direito)
     container.innerHTML = feedbacks.map(item => `
       <div class="fb-item-card" id="item-${item.id}">
         <div class="fb-item-header">
-          <div>
-            <div class="fb-header-line1">
-              <span class="fb-tag">${item.tipo}</span>
-              <div class="fb-author">👤 Enviado por: ${item.autor}</div>
-            </div>
-            <div class="fb-header-line2">${item.doc}</div>
+          <div class="fb-header-left">
+            <div><span class="fb-tag">${item.tipo}</span></div>
+            <div class="fb-doc-title">${item.doc}</div>
           </div>
-          <span class="fb-date">${item.data}</span>
+          <div class="fb-header-right">
+            <span class="fb-date">${item.data}</span>
+            <div class="fb-author">👤 Enviado por: ${item.autor}</div>
+          </div>
         </div>
         <div class="fb-content" id="content-${item.id}">${item.html}</div>
         <div class="fb-item-actions">

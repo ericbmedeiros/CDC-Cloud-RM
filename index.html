@@ -77,7 +77,7 @@
     .snippet { 
       color: #c0cdf0; 
       font-size: 14px; 
-      line-height: 1.6; 
+      line-height: 1.5; 
       margin-top: 12px; 
       white-space: pre-wrap;
       word-break: break-word;
@@ -92,9 +92,10 @@
 
     .snippet a { color: var(--accent); text-decoration: underline; }
 
+    /* Ajuste para eliminar os espacos em branco excessivos das imagens */
     .snippet .img-container {
-      display: inline-block;
-      margin: 4px 0 8px 0;
+      display: block;
+      margin: 6px 0;
       position: relative;
     }
 
@@ -247,15 +248,30 @@
 <script src="./docs.js"></script>
 
 <script>
-  const SENHA_CORRETA = "redondo"; 
+  const HASH_SENHA_CORRETA = "3194a282f1bc20a672836ff52bf311b1bf762391054a13d74f2858b998a69e7f";
 
-  function autenticar() {
+  async function gerarHashSHA256(texto) {
+    const msgUint8 = new TextEncoder().encode(texto);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function autenticar() {
     const acessoSalvo = sessionStorage.getItem("acesso_central_cloud");
-    if (acessoSalvo === SENHA_CORRETA) return true;
+    if (acessoSalvo === HASH_SENHA_CORRETA) return true;
 
     const senhaDigitada = prompt("Central de Conhecimento - Suporte Cloud (RM)\n\nPor favor, digite a senha de acesso:");
-    if (senhaDigitada === SENHA_CORRETA) {
-      sessionStorage.setItem("acesso_central_cloud", SENHA_CORRETA);
+    if (!senhaDigitada) {
+      document.body.innerHTML = "<h2 style='color:white; text-align:center; margin-top:50px;'>Acesso negado. Recarregue a página para tentar novamente.</h2>";
+      return false;
+    }
+
+    const hashDigitado = await gerarHashSHA256(senhaDigitada.trim());
+
+    if (hashDigitado === HASH_SENHA_CORRETA) {
+      sessionStorage.setItem("acesso_central_cloud", HASH_SENHA_CORRETA);
+      location.reload();
       return true;
     } else {
       alert("Senha incorreta! Acesso negado.");
@@ -268,370 +284,373 @@
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  if (autenticar()) {
-    const DOCS = (typeof DATA !== 'undefined' && DATA.docs) ? DATA.docs : [];
-    const grid = document.getElementById('grid');
-    const q = document.getElementById('q');
-    const count = document.getElementById('count');
-    const fileInput = document.getElementById('fileInput');
-    const ocrStatus = document.getElementById('ocrStatus');
+  (async () => {
+    if (await autenticar()) {
+      const DOCS = (typeof DATA !== 'undefined' && DATA.docs) ? DATA.docs : [];
+      const grid = document.getElementById('grid');
+      const q = document.getElementById('q');
+      const count = document.getElementById('count');
+      const fileInput = document.getElementById('fileInput');
+      const ocrStatus = document.getElementById('ocrStatus');
 
-    const STOP_WORDS = new Set([
-      "de", "da", "do", "das", "dos", "ao", "aos", "em", "na", "nos", "nas", 
-      "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "foi", 
-      "que", "ha", "este", "esta", "and", "or", "to", "in", "for", "with", "of"
-    ]);
+      const STOP_WORDS = new Set([
+        "de", "da", "do", "das", "dos", "ao", "aos", "em", "na", "nos", "nas", 
+        "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "foi", 
+        "que", "ha", "este", "esta", "and", "or", "to", "in", "for", "with", "of"
+      ]);
 
-    function cleanText(s) {
-      if (!s) return '';
-      return s
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    }
-
-    function getKeywords(text) {
-      const clean = cleanText(text);
-      return clean
-        .split(' ')
-        .filter(w => w.length >= 2 && !STOP_WORDS.has(w));
-    }
-
-    function getStem(word) {
-      if (!word || word.length < 4) return word;
-      return word.substring(0, Math.min(5, word.length));
-    }
-
-    const searchDocs = DOCS.map(d => ({
-      ...d,
-      cleanTitle: cleanText(d.title),
-      cleanText: cleanText(d.text),
-      cleanPath: cleanText(d.path || d.title),
-      titleKeywords: getKeywords(d.title),
-      textKeywords: getKeywords(d.text)
-    }));
-
-    const fuse = new Fuse(searchDocs, {
-      keys: [
-        { name: 'title', weight: 0.7 },
-        { name: 'text', weight: 0.3 }
-      ],
-      threshold: 0.3,
-      ignoreLocation: true,
-      minMatchCharLength: 2,
-      useExtendedSearch: true
-    });
-
-    function getScore(d, rawQuery) {
-      if (!rawQuery) return 0;
-      const cleanQ = cleanText(rawQuery);
-      const queryWords = getKeywords(rawQuery);
-      if (queryWords.length === 0) return 0;
-
-      let score = 0;
-
-      if (cleanQ.length > 3 && d.cleanText.includes(cleanQ)) {
-        score += 35000;
-      }
-
-      let maxWordsInWindow = 0;
-      let maxStemsInWindow = 0;
-      const windowSize = 250;
-
-      for (let i = 0; i < d.cleanText.length; i += 80) {
-        const textSlice = d.cleanText.substring(i, i + windowSize);
-        let countExact = 0;
-        let countStem = 0;
-
-        for (const word of queryWords) {
-          if (textSlice.includes(word)) {
-            countExact++;
-          } else {
-            const stem = getStem(word);
-            if (stem.length >= 4 && textSlice.includes(stem)) {
-              countStem++;
-            }
-          }
-        }
-
-        const totalInSlice = countExact + (countStem * 0.7);
-        if (totalInSlice > (maxWordsInWindow + (maxStemsInWindow * 0.7))) {
-          maxWordsInWindow = countExact;
-          maxStemsInWindow = countStem;
-        }
-      }
-
-      const totalMatchedDensity = maxWordsInWindow + maxStemsInWindow;
-      if (totalMatchedDensity >= 2) {
-        score += Math.pow(totalMatchedDensity, 3) * 2500;
-      }
-
-      if (queryWords.length >= 2) {
-        for (let i = 0; i <= queryWords.length - 2; i++) {
-          const pair = queryWords.slice(i, i + 2).join(' ');
-          if (d.cleanText.includes(pair)) {
-            score += 4000;
-          } else {
-            const stemPair = queryWords.slice(i, i + 2).map(getStem).join('.{0,15}?');
-            if (new RegExp(stemPair, 'i').test(d.cleanText)) {
-              score += 2000;
-            }
-          }
-        }
-      }
-
-      if (d.cleanTitle.includes(cleanQ)) score += 5000;
-      if (d.cleanPath.includes(cleanQ)) score += 2500;
-
-      let uniqueMatches = 0;
-      for (const word of queryWords) {
-        if (d.cleanText.includes(word)) {
-          score += 40;
-          uniqueMatches++;
-        } else {
-          const stem = getStem(word);
-          if (stem.length >= 4 && d.cleanText.includes(stem)) {
-            score += 20;
-            uniqueMatches += 0.7;
-          }
-        }
-      }
-
-      const matchRatio = uniqueMatches / queryWords.length;
-      score = score * (0.2 + (matchRatio * 0.8));
-
-      return score;
-    }
-
-    function getParentPathOnly(doc) {
-      const fullPath = doc.path || doc.title || '';
-      const parts = fullPath.split(' > ');
-      if (parts.length <= 1) return ''; 
-      parts.pop(); 
-      return parts.join(' > ');
-    }
-
-    function buildAccentRegex(term) {
-      const charMap = {
-        'a': '[aáàâãä]', 'e': '[eéèêë]', 'i': '[iíìîï]',
-        'o': '[oóòôõö]', 'u': '[uúùûü]', 'c': '[cç]'
-      };
-      const escaped = escapeRegExp(term.toLowerCase());
-      const pattern = escaped.split('').map(c => charMap[c] || c).join('');
-      return new RegExp(pattern, 'gi');
-    }
-
-    function formatSnippetText(snippetText) {
-      if (!snippetText) return '';
-
-      let formatted = snippetText.replace(
-        /!\[Imagem\]\(([^)]+)\)/g,
-        `<div class="img-container">
-          <img src="$1" 
-               alt="Imagem da Documentação" 
-               onerror="this.onerror=null; this.parentElement.classList.add('img-failed');" 
-               onclick="ampliarImagem('$1')" 
-               title="Clique para ampliar" />
-          <div class="img-fallback-msg">⚠️ Imagem pendente de carregamento no servidor</div>
-         </div>`
-      );
-
-      formatted = formatted.replace(
-        /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener">$1</a>'
-      );
-
-      const urlRegex = /(?<!href=")(?<!src=")(https?:\/\/[^\s<)]+)/g;
-      return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-    }
-
-    function highlightSnippetHtml(htmlContent, rawQuery) {
-      if (!htmlContent || !rawQuery) return htmlContent;
-
-      const cleanQ = cleanText(rawQuery);
-      const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w));
-      const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
-
-      let highlighted = htmlContent;
-      for (const word of wordsToHighlight) {
-        try {
-          const regHighlight = buildAccentRegex(word);
-          highlighted = highlighted.replace(/(<[^>]+>)|([^<]+)/g, (match, tag, text) => {
-            if (tag) return tag;
-            return text.replace(regHighlight, '<mark>$&</mark>');
-          });
-        } catch (e) {}
-      }
-
-      return highlighted;
-    }
-
-    function getSnippet(text, rawQuery) {
-      if (!text) return '';
-      if (!rawQuery) return formatSnippetText(text.substring(0, 650) + (text.length > 650 ? '...' : ''));
-
-      const cleanQ = cleanText(rawQuery);
-      const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w));
-
-      let matchIndex = -1;
-
-      // 1. Procura primeiro por ocorrencia em linhas de Titulo ou Texto limpo (fora de URLs de links)
-      if (queryWords.length >= 2) {
-        let bestCount = 0;
-        const windowSize = 250;
-        for (let i = 0; i < text.length - windowSize; i += 30) {
-          const slice = text.substring(i, i + windowSize);
-          
-          // Se o trecho for um link HTTP/HTTPS puro, reduz prioridade para nao ancorar na URL
-          const isUrl = /^https?:\/\//i.test(slice.trim());
-          if (isUrl) continue;
-
-          let count = 0;
-          const lowerSlice = slice.toLowerCase();
-          for (const w of queryWords) {
-            if (lowerSlice.includes(w)) count++;
-            else {
-              const st = getStem(w);
-              if (st.length >= 4 && lowerSlice.includes(st)) count += 0.5;
-            }
-          }
-          if (count > bestCount) {
-            bestCount = count;
-            matchIndex = i;
-          }
-        }
-      }
-
-      if (matchIndex === -1 && queryWords.length > 0) {
-        for (const word of queryWords) {
-          const idx = text.toLowerCase().indexOf(word);
-          if (idx !== -1) {
-            matchIndex = idx;
-            break;
-          }
-        }
-      }
-
-      if (matchIndex === -1) {
-        return formatSnippetText(text.substring(0, 650) + (text.length > 650 ? '...' : ''));
-      }
-
-      // Janela superior expandida para 180 caracteres antes do ponto de corte, trazendo titulos de erros e imagens acima
-      const start = Math.max(0, matchIndex - 180);
-      const end = Math.min(text.length, matchIndex + 1620);
-      let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
-
-      const formattedHtml = formatSnippetText(snippet);
-      return highlightSnippetHtml(formattedHtml, rawQuery);
-    }
-
-    function render() {
-      const rawQuery = q.value.trim();
-      let results = [];
-
-      if (!rawQuery) {
-        results = searchDocs;
-      } else {
-        const scoredDocs = searchDocs.map(d => ({
-          ...d,
-          _score: getScore(d, rawQuery)
-        }));
-
-        const directMatches = scoredDocs
-          .filter(d => d._score > 0)
-          .sort((a, b) => b._score - a._score);
-
-        const queryWords = getKeywords(rawQuery);
-        const cleanSearchQuery = queryWords.join(' ');
-
-        const fuseMatches = fuse.search(cleanSearchQuery || rawQuery)
-          .map(r => r.item)
-          .filter(d => !directMatches.some(dm => dm.id === d.id));
-
-        results = [...directMatches, ...fuseMatches];
-      }
-
-      grid.innerHTML = results.map(d => {
-        const parentPath = getParentPathOnly(d);
-        const snippetContent = getSnippet(d.text, rawQuery);
-        return `
-          <div class="card">
-            ${parentPath ? `<div class="path-parent">${parentPath}</div>` : ''}
-            <h3><a href="${d.url || '#'}" target="_blank" rel="noopener">${d.title}</a></h3>
-            <div class="snippet">${snippetContent}</div>
-          </div>
-        `;
-      }).join('');
-
-      count.textContent = `${results.length} resultado(s) encontrado(s)`;
-    }
-
-    async function processarImagemOCR(imageSource) {
-      ocrStatus.style.display = "block";
-      ocrStatus.textContent = "Processando imagem do erro via OCR...";
-
-      try {
-        const worker = await Tesseract.createWorker('por');
-        const ret = await worker.recognize(imageSource);
-        await worker.terminate();
-
-        let rawText = ret.data.text || "";
-
-        let cleanTextStr = rawText
-          .replace(/[\r\n]+/g, ' ')
-          .replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÍÏÓÔÕÖÚ\s]/g, ' ')
+      function cleanText(s) {
+        if (!s) return '';
+        return s
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
+      }
 
-        const palavrasRelevantes = cleanTextStr.split(' ').filter(word => {
-          const wClean = cleanText(word);
-          return wClean.length >= 2 && !STOP_WORDS.has(wClean);
-        });
+      function getKeywords(text) {
+        const clean = cleanText(text);
+        return clean
+          .split(' ')
+          .filter(w => w.length >= 2 && !STOP_WORDS.has(w));
+      }
 
-        const textoLido = palavrasRelevantes.join(' ');
+      function getStem(word) {
+        if (!word || word.length < 4) return word;
+        return word.substring(0, Math.min(5, word.length));
+      }
 
-        if (textoLido.length > 0) {
-          q.value = textoLido;
-          render();
-          ocrStatus.textContent = "Texto extraído com sucesso!";
-        } else {
-          ocrStatus.textContent = "Nenhum texto relevante foi identificado.";
+      const searchDocs = DOCS.map(d => ({
+        ...d,
+        cleanTitle: cleanText(d.title),
+        cleanText: cleanText(d.text),
+        cleanPath: cleanText(d.path || d.title),
+        titleKeywords: getKeywords(d.title),
+        textKeywords: getKeywords(d.text)
+      }));
+
+      const fuse = new Fuse(searchDocs, {
+        keys: [
+          { name: 'title', weight: 0.7 },
+          { name: 'text', weight: 0.3 }
+        ],
+        threshold: 0.3,
+        ignoreLocation: true,
+        minMatchCharLength: 2,
+        useExtendedSearch: true
+      });
+
+      function getScore(d, rawQuery) {
+        if (!rawQuery) return 0;
+        const cleanQ = cleanText(rawQuery);
+        const queryWords = getKeywords(rawQuery);
+        if (queryWords.length === 0) return 0;
+
+        let score = 0;
+
+        if (cleanQ.length > 3 && d.cleanText.includes(cleanQ)) {
+          score += 35000;
         }
-      } catch (err) {
-        console.error(err);
-        ocrStatus.textContent = "Erro ao processar imagem de erro.";
-      }
 
-      setTimeout(() => { ocrStatus.style.display = "none"; }, 4000);
-    }
+        let maxWordsInWindow = 0;
+        let maxStemsInWindow = 0;
+        const windowSize = 250;
 
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files && e.target.files[0]) {
-        processarImagemOCR(e.target.files[0]);
-      }
-    });
+        for (let i = 0; i < d.cleanText.length; i += 80) {
+          const textSlice = d.cleanText.substring(i, i + windowSize);
+          let countExact = 0;
+          let countStem = 0;
 
-    document.addEventListener('paste', (e) => {
-      const modalVisivel = document.getElementById('modalFeedback').style.display === 'flex';
-      if (!modalVisivel) {
-        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-        for (const item of items) {
-          if (item.type.indexOf("image") === 0) {
-            const blob = item.getAsFile();
-            processarImagemOCR(blob);
-            break;
+          for (const word of queryWords) {
+            if (textSlice.includes(word)) {
+              countExact++;
+            } else {
+              const stem = getStem(word);
+              if (stem.length >= 4 && textSlice.includes(stem)) {
+                countStem++;
+              }
+            }
+          }
+
+          const totalInSlice = countExact + (countStem * 0.7);
+          if (totalInSlice > (maxWordsInWindow + (maxStemsInWindow * 0.7))) {
+            maxWordsInWindow = countExact;
+            maxStemsInWindow = countStem;
           }
         }
-      }
-    });
 
-    q.addEventListener('input', render);
-    count.textContent = `${DOCS.length} documentações carregadas.`;
-    render();
-  }
+        const totalMatchedDensity = maxWordsInWindow + maxStemsInWindow;
+        if (totalMatchedDensity >= 2) {
+          score += Math.pow(totalMatchedDensity, 3) * 2500;
+        }
+
+        if (queryWords.length >= 2) {
+          for (let i = 0; i <= queryWords.length - 2; i++) {
+            const pair = queryWords.slice(i, i + 2).join(' ');
+            if (d.cleanText.includes(pair)) {
+              score += 4000;
+            } else {
+              const stemPair = queryWords.slice(i, i + 2).map(getStem).join('.{0,15}?');
+              if (new RegExp(stemPair, 'i').test(d.cleanText)) {
+                score += 2000;
+              }
+            }
+          }
+        }
+
+        if (d.cleanTitle.includes(cleanQ)) score += 5000;
+        if (d.cleanPath.includes(cleanQ)) score += 2500;
+
+        let uniqueMatches = 0;
+        for (const word of queryWords) {
+          if (d.cleanText.includes(word)) {
+            score += 40;
+            uniqueMatches++;
+          } else {
+            const stem = getStem(word);
+            if (stem.length >= 4 && d.cleanText.includes(stem)) {
+              score += 20;
+              uniqueMatches += 0.7;
+            }
+          }
+        }
+
+        const matchRatio = uniqueMatches / queryWords.length;
+        score = score * (0.2 + (matchRatio * 0.8));
+
+        return score;
+      }
+
+      function getParentPathOnly(doc) {
+        const fullPath = doc.path || doc.title || '';
+        const parts = fullPath.split(' > ');
+        if (parts.length <= 1) return ''; 
+        parts.pop(); 
+        return parts.join(' > ');
+      }
+
+      function buildAccentRegex(term) {
+        const charMap = {
+          'a': '[aáàâãä]', 'e': '[eéèêë]', 'i': '[iíìîï]',
+          'o': '[oóòôõö]', 'u': '[uúùûü]', 'c': '[cç]'
+        };
+        const escaped = escapeRegExp(term.toLowerCase());
+        const pattern = escaped.split('').map(c => charMap[c] || c).join('');
+        return new RegExp(pattern, 'gi');
+      }
+
+      function formatSnippetText(snippetText) {
+        if (!snippetText) return '';
+
+        // Limpa quebras de linha acumuladas ao redor de marcadores de imagem
+        let cleanedText = snippetText.replace(/[\r\n]{2,}(!\[Imagem\])/g, '\n$1');
+        cleanedText = cleanedText.replace(/(!\[Imagem\]\([^)]+\))[\r\n]{2,}/g, '$1\n');
+
+        let formatted = cleanedText.replace(
+          /!\[Imagem\]\(([^)]+)\)/g,
+          `<div class="img-container">
+            <img src="$1" 
+                 alt="Imagem da Documentação" 
+                 onerror="this.onerror=null; this.parentElement.classList.add('img-failed');" 
+                 onclick="ampliarImagem('$1')" 
+                 title="Clique para ampliar" />
+            <div class="img-fallback-msg">⚠️ Imagem pendente de carregamento no servidor</div>
+           </div>`
+        );
+
+        formatted = formatted.replace(
+          /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+          '<a href="$2" target="_blank" rel="noopener">$1</a>'
+        );
+
+        const urlRegex = /(?<!href=")(?<!src=")(https?:\/\/[^\s<)]+)/g;
+        return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+      }
+
+      function highlightSnippetHtml(htmlContent, rawQuery) {
+        if (!htmlContent || !rawQuery) return htmlContent;
+
+        const cleanQ = cleanText(rawQuery);
+        const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w));
+        const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
+
+        let highlighted = htmlContent;
+        for (const word of wordsToHighlight) {
+          try {
+            const regHighlight = buildAccentRegex(word);
+            highlighted = highlighted.replace(/(<[^>]+>)|([^<]+)/g, (match, tag, text) => {
+              if (tag) return tag;
+              return text.replace(regHighlight, '<mark>$&</mark>');
+            });
+          } catch (e) {}
+        }
+
+        return highlighted;
+      }
+
+      function getSnippet(text, rawQuery) {
+        if (!text) return '';
+        if (!rawQuery) return formatSnippetText(text.substring(0, 650) + (text.length > 650 ? '...' : ''));
+
+        const cleanQ = cleanText(rawQuery);
+        const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w));
+
+        let matchIndex = -1;
+
+        if (queryWords.length >= 2) {
+          let bestCount = 0;
+          const windowSize = 250;
+          for (let i = 0; i < text.length - windowSize; i += 30) {
+            const slice = text.substring(i, i + windowSize);
+            
+            const isUrl = /^https?:\/\//i.test(slice.trim());
+            if (isUrl) continue;
+
+            let count = 0;
+            const lowerSlice = slice.toLowerCase();
+            for (const w of queryWords) {
+              if (lowerSlice.includes(w)) count++;
+              else {
+                const st = getStem(w);
+                if (st.length >= 4 && lowerSlice.includes(st)) count += 0.5;
+              }
+            }
+            if (count > bestCount) {
+              bestCount = count;
+              matchIndex = i;
+            }
+          }
+        }
+
+        if (matchIndex === -1 && queryWords.length > 0) {
+          for (const word of queryWords) {
+            const idx = text.toLowerCase().indexOf(word);
+            if (idx !== -1) {
+              matchIndex = idx;
+              break;
+            }
+          }
+        }
+
+        if (matchIndex === -1) {
+          return formatSnippetText(text.substring(0, 650) + (text.length > 650 ? '...' : ''));
+        }
+
+        const start = Math.max(0, matchIndex - 180);
+        const end = Math.min(text.length, matchIndex + 1620);
+        let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+
+        const formattedHtml = formatSnippetText(snippet);
+        return highlightSnippetHtml(formattedHtml, rawQuery);
+      }
+
+      function render() {
+        const rawQuery = q.value.trim();
+        let results = [];
+
+        if (!rawQuery) {
+          results = searchDocs;
+        } else {
+          const scoredDocs = searchDocs.map(d => ({
+            ...d,
+            _score: getScore(d, rawQuery)
+          }));
+
+          const directMatches = scoredDocs
+            .filter(d => d._score > 0)
+            .sort((a, b) => b._score - a._score);
+
+          const queryWords = getKeywords(rawQuery);
+          const cleanSearchQuery = queryWords.join(' ');
+
+          const fuseMatches = fuse.search(cleanSearchQuery || rawQuery)
+            .map(r => r.item)
+            .filter(d => !directMatches.some(dm => dm.id === d.id));
+
+          results = [...directMatches, ...fuseMatches];
+        }
+
+        grid.innerHTML = results.map(d => {
+          const parentPath = getParentPathOnly(d);
+          const snippetContent = getSnippet(d.text, rawQuery);
+          return `
+            <div class="card">
+              ${parentPath ? `<div class="path-parent">${parentPath}</div>` : ''}
+              <h3><a href="${d.url || '#'}" target="_blank" rel="noopener">${d.title}</a></h3>
+              <div class="snippet">${snippetContent}</div>
+            </div>
+          `;
+        }).join('');
+
+        count.textContent = `${results.length} resultado(s) encontrado(s)`;
+      }
+
+      async function processarImagemOCR(imageSource) {
+        ocrStatus.style.display = "block";
+        ocrStatus.textContent = "Processando imagem do erro via OCR...";
+
+        try {
+          const worker = await Tesseract.createWorker('por');
+          const ret = await worker.recognize(imageSource);
+          await worker.terminate();
+
+          let rawText = ret.data.text || "";
+
+          let cleanTextStr = rawText
+            .replace(/[\r\n]+/g, ' ')
+            .replace(/[^a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÍÏÓÔÕÖÚ\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          const palavrasRelevantes = cleanTextStr.split(' ').filter(word => {
+            const wClean = cleanText(word);
+            return wClean.length >= 2 && !STOP_WORDS.has(wClean);
+          });
+
+          const textoLido = palavrasRelevantes.join(' ');
+
+          if (textoLido.length > 0) {
+            q.value = textoLido;
+            render();
+            ocrStatus.textContent = "Texto extraído com sucesso!";
+          } else {
+            ocrStatus.textContent = "Nenhum texto relevante foi identificado.";
+          }
+        } catch (err) {
+          console.error(err);
+          ocrStatus.textContent = "Erro ao processar imagem de erro.";
+        }
+
+        setTimeout(() => { ocrStatus.style.display = "none"; }, 4000);
+      }
+
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          processarImagemOCR(e.target.files[0]);
+        }
+      });
+
+      document.addEventListener('paste', (e) => {
+        const modalVisivel = document.getElementById('modalFeedback').style.display === 'flex';
+        if (!modalVisivel) {
+          const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+          for (const item of items) {
+            if (item.type.indexOf("image") === 0) {
+              const blob = item.getAsFile();
+              processarImagemOCR(blob);
+              break;
+            }
+          }
+        }
+      });
+
+      q.addEventListener('input', render);
+      count.textContent = `${DOCS.length} documentações carregadas.`;
+      render();
+    }
+  })();
 
   function ampliarImagem(url) {
     const modal = document.getElementById('imgModal');

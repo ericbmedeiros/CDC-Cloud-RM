@@ -132,7 +132,7 @@
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(6px);
       display: none; align-items: center; justify-content: center;
-      z-index: 200; cursor: pointer;
+      z-index: 300; cursor: pointer;
     }
 
     .img-modal-content {
@@ -165,8 +165,11 @@
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
       display: none; align-items: center; justify-content: center;
-      z-index: 100;
     }
+
+    #modalPainel { z-index: 100; }
+    #modalFeedback { z-index: 150; }
+
     .modal-box {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 16px; padding: 24px; width: 100%;
@@ -216,6 +219,7 @@
       margin: 10px 0;
       border: 1px solid var(--border);
       display: block;
+      cursor: pointer;
     }
 
     .painel-top-bar {
@@ -287,6 +291,7 @@
       border-radius: 6px;
       margin: 8px 0;
       border: 1px solid var(--border);
+      cursor: pointer;
     }
 
     .fb-item-actions {
@@ -807,6 +812,7 @@
   }
 
   function abrirModalFeedback() {
+    fecharPainelSugestoes(); // Fecha o painel de fundo para abrir o pop-up limpo
     document.getElementById('modalFeedback').style.display = 'flex';
   }
 
@@ -818,7 +824,7 @@
     const reader = new FileReader();
     reader.onload = function(e) {
       const base64Src = e.target.result;
-      document.execCommand('insertHTML', false, `<br/><img src="${base64Src}" /><br/>`);
+      document.execCommand('insertHTML', false, `<br/><img src="${base64Src}" onclick="ampliarImagem('${base64Src}')" /><br/>`);
       status.textContent = '✅ Imagem anexada!';
       setTimeout(() => { status.style.display = 'none'; }, 2000);
     };
@@ -874,11 +880,7 @@
 
     alert("Sugestão enviada com sucesso para o Painel!");
     fecharModalFeedback();
-
-    const modalPainel = document.getElementById('modalPainel');
-    if (modalPainel && modalPainel.style.display === 'flex') {
-      renderizarPainel();
-    }
+    abrirPainelSugestoes();
   }
 
   function abrirPainelSugestoes() {
@@ -918,25 +920,55 @@
     `).join('');
   }
 
+  // Converte string Base64 para objeto Blob binário nativo
+  function base64ToBlob(base64, mimeType = 'image/png') {
+    const byteCharacters = atob(base64.split(',')[1]);
+    const byteArrays = [];
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    return new Blob(byteArrays, { type: mimeType });
+  }
+
   async function copiarItemNotion(id) {
     const feedbacks = JSON.parse(localStorage.getItem('cdc_feedbacks') || '[]');
     const item = feedbacks.find(f => f.id === id);
     if (!item) return;
 
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = item.html;
+    const imgEl = tempDiv.querySelector('img');
+
     try {
-      const blobHtml = new Blob([item.html], { type: 'text/html' });
-      const blobText = new Blob([item.texto], { type: 'text/plain' });
-
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          'text/html': blobHtml,
-          'text/plain': blobText
-        })
-      ]);
-
-      alert("Conteúdo e imagem copiados! Cole direto no Notion (Ctrl+V).");
+      if (imgEl && imgEl.src.startsWith('data:image')) {
+        // Converte a imagem Base64 em arquivo binário PNG nativo na área de transferência
+        const imageBlob = base64ToBlob(imgEl.src, 'image/png');
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'image/png': imageBlob
+          })
+        ]);
+        alert("Imagem copiada para a área de transferência! Cole no Notion (Ctrl+V) e em seguida copie o texto do texto.");
+      } else {
+        const blobHtml = new Blob([item.html], { type: 'text/html' });
+        const blobText = new Blob([item.texto], { type: 'text/plain' });
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': blobHtml,
+            'text/plain': blobText
+          })
+        ]);
+        alert("Conteúdo copiado! Cole direto no Notion (Ctrl+V).");
+      }
     } catch (err) {
-      alert("Erro ao copiar o conteúdo.");
+      console.error(err);
+      alert("Erro ao copiar o conteúdo para a área de transferência.");
     }
   }
 

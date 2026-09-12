@@ -92,10 +92,10 @@
 
     .snippet a { color: var(--accent); text-decoration: underline; }
 
-    /* Redução de espaçamento das miniaturas de imagem */
+    /* Imagens e tratamento visual com margem reduzida */
     .snippet .img-container {
       display: inline-block;
-      margin: 4px 0 8px 0;
+      margin: 4px 0; /* Margem ajustada para colar mais ao texto */
       position: relative;
     }
 
@@ -147,7 +147,7 @@
     .snippet::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
     .snippet::-webkit-scrollbar-thumb { background: rgba(90, 167, 255, 0.3); border-radius: 4px; }
 
-    /* Destaque padronizado e limpo */
+    /* Destaque limpo e sem distorcao em palavras coladas */
     mark { 
       background: rgba(90, 167, 255, 0.25); 
       color: #5aa7ff; 
@@ -163,6 +163,7 @@
     .count { color: var(--muted); font-size: 13px; margin-top: 10px; }
     .ocr-status { color: var(--breadcrumb-green); font-size: 13px; margin-top: 6px; font-weight: 500; display: none; }
 
+    /* Modal de Feedback */
     .modal-backdrop {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
@@ -233,7 +234,7 @@
       <input type="text" id="fbDoc" placeholder="Ex: LAUNCHER (RM.exe) ou URL no Notion" />
 
       <label for="fbDetalhes">Detalhamento</label>
-      <textarea id="fbDetalhes" placeholder="Descreva aqui o que precisa ser adicionado ou corrigido..."></textarea>
+      <textarea id="fbDetalhes" placeholder="Descreva aqui o que precisa ser ajustado ou adicionado..."></textarea>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="fecharModalFeedback()">Cancelar</button>
@@ -281,10 +282,10 @@
     const fileInput = document.getElementById('fileInput');
     const ocrStatus = document.getElementById('ocrStatus');
 
-    // Termos essenciais como "nao" foram mantidos para buscas como "centavos nao aparecem"
+    // Apenas conectivos gramaticais basicos mantidos como stop-words
     const STOP_WORDS = new Set([
-      "de", "da", "do", "das", "dos", "ao", "aos", "em", "na", "nos", "nas", 
-      "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "foi", 
+      "de", "da", "do", "das", "dos", "ao", "aos", "em", "no", "na", "nos", "nas", 
+      "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "nao", "foi", 
       "que", "ha", "este", "esta", "and", "or", "to", "in", "for", "with", "of"
     ]);
 
@@ -304,11 +305,6 @@
       return clean
         .split(' ')
         .filter(w => w.length >= 2 && !STOP_WORDS.has(w));
-    }
-
-    function getStem(word) {
-      if (!word || word.length < 4) return word;
-      return word.substring(0, Math.min(5, word.length));
     }
 
     const searchDocs = DOCS.map(d => ({
@@ -340,79 +336,59 @@
       let score = 0;
 
       // 1. Frase Exata Sequencial
-      if (cleanQ.length > 3 && d.cleanText.includes(cleanQ)) {
-        score += 35000;
+      if (cleanQ.length > 4 && d.cleanText.includes(cleanQ)) {
+        score += 30000;
       }
 
-      // 2. Pontuação por Densidade de Palavras/Radicais na mesma janela de texto
+      // 2. AVALIAÇÃO DE DENSIDADE E PROXIMIDADE (PRIORIDADE MÁXIMA)
+      // Avalia a maior quantidade de palavras da busca que ocorrem dentro de uma mesma janela de 200 caracteres
       let maxWordsInWindow = 0;
-      let maxStemsInWindow = 0;
-      const windowSize = 250;
+      const windowSize = 200;
 
-      for (let i = 0; i < d.cleanText.length; i += 80) {
+      for (let i = 0; i < d.cleanText.length; i += 100) {
         const textSlice = d.cleanText.substring(i, i + windowSize);
-        let countExact = 0;
-        let countStem = 0;
-
+        let countInWindow = 0;
         for (const word of queryWords) {
-          if (textSlice.includes(word)) {
-            countExact++;
-          } else {
-            const stem = getStem(word);
-            if (stem.length >= 4 && textSlice.includes(stem)) {
-              countStem++;
-            }
-          }
+          if (textSlice.includes(word)) countInWindow++;
         }
-
-        const totalInSlice = countExact + (countStem * 0.7);
-        if (totalInSlice > (maxWordsInWindow + (maxStemsInWindow * 0.7))) {
-          maxWordsInWindow = countExact;
-          maxStemsInWindow = countStem;
+        if (countInWindow > maxWordsInWindow) {
+          maxWordsInWindow = countInWindow;
         }
       }
 
-      const totalMatchedDensity = maxWordsInWindow + maxStemsInWindow;
-      if (totalMatchedDensity >= 2) {
-        score += Math.pow(totalMatchedDensity, 3) * 2500;
+      // Se encontrou 3 ou mais palavras da busca na mesma frase/janela, premia exponencialmente
+      if (maxWordsInWindow >= 3) {
+        score += Math.pow(maxWordsInWindow, 3) * 1500;
+      } else if (maxWordsInWindow >= 2) {
+        score += Math.pow(maxWordsInWindow, 2) * 500;
       }
 
-      // 3. Sequências de N-Grams (2 e 3 palavras ou radicais consecutivos)
+      // 3. Sequências diretas de N-Grams (2 e 3 palavras consecutivas)
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
           const pair = queryWords.slice(i, i + 2).join(' ');
           if (d.cleanText.includes(pair)) {
-            score += 4000;
-          } else {
-            const stemPair = queryWords.slice(i, i + 2).map(getStem).join('.{0,15}?');
-            if (new RegExp(stemPair, 'i').test(d.cleanText)) {
-              score += 2000;
-            }
+            score += 2000;
           }
         }
       }
 
       // 4. Coincidência no Título ou Caminho
-      if (d.cleanTitle.includes(cleanQ)) score += 5000;
-      if (d.cleanPath.includes(cleanQ)) score += 2500;
+      if (d.cleanTitle.includes(cleanQ)) score += 4000;
+      if (d.cleanPath.includes(cleanQ)) score += 2000;
 
-      // 5. Contagem individual de termos
-      let uniqueMatches = 0;
+      // 5. Presença individual de termos (com peso reduzido para evitar inflação por repetição)
+      let matchedKeywords = 0;
       for (const word of queryWords) {
         if (d.cleanText.includes(word)) {
-          score += 40;
-          uniqueMatches++;
-        } else {
-          const stem = getStem(word);
-          if (stem.length >= 4 && d.cleanText.includes(stem)) {
-            score += 20;
-            uniqueMatches += 0.7;
-          }
+          score += 30; // Pontuação base baixa por palavra solta
+          matchedKeywords++;
         }
       }
 
-      const matchRatio = uniqueMatches / queryWords.length;
-      score = score * (0.2 + (matchRatio * 0.8));
+      // Proporção de palavras encontradas
+      const matchRatio = matchedKeywords / queryWords.length;
+      score = score * (0.3 + (matchRatio * 0.7));
 
       return score;
     }
@@ -435,77 +411,24 @@
       return new RegExp(pattern, 'gi');
     }
 
-    function formatSnippetText(snippetText) {
-      if (!snippetText) return '';
-
-      // 1. Converte miniaturas de imagens
-      let formatted = snippetText.replace(
-        /!\[Imagem\]\(([^)]+)\)/g,
-        `<div class="img-container">
-          <img src="$1" 
-               alt="Imagem da Documentação" 
-               onerror="this.onerror=null; this.parentElement.classList.add('img-failed');" 
-               onclick="ampliarImagem('$1')" 
-               title="Clique para ampliar" />
-          <div class="img-fallback-msg">⚠️ Imagem pendente de carregamento no servidor</div>
-         </div>`
-      );
-
-      // 2. Converte links em formato Markdown [Texto](URL)
-      formatted = formatted.replace(
-        /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener">$1</a>'
-      );
-
-      // 3. Converte URLs simples que iniciam com https://
-      const urlRegex = /(?<!href=")(?<!src=")(https?:\/\/[^\s<)]+)/g;
-      return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-    }
-
-    // Aplica a marcacao apenas no conteudo textual, preservando tags HTML e atibutos href/src
-    function highlightSnippetHtml(htmlContent, rawQuery) {
-      if (!htmlContent || !rawQuery) return htmlContent;
-
-      const cleanQ = cleanText(rawQuery);
-      const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w));
-      const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
-
-      let highlighted = htmlContent;
-      for (const word of wordsToHighlight) {
-        try {
-          const regHighlight = buildAccentRegex(word);
-          highlighted = highlighted.replace(/(<[^>]+>)|([^<]+)/g, (match, tag, text) => {
-            if (tag) return tag; // Preserva atributos href e src
-            return text.replace(regHighlight, '<mark>$&</mark>');
-          });
-        } catch (e) {}
-      }
-
-      return highlighted;
-    }
-
     function getSnippet(text, rawQuery) {
       if (!text) return '';
-      if (!rawQuery) return formatSnippetText(text.substring(0, 650) + (text.length > 650 ? '...' : ''));
+      if (!rawQuery) return text.substring(0, 650) + (text.length > 650 ? '...' : '');
 
       const cleanQ = cleanText(rawQuery);
       const queryWords = cleanQ.split(/\s+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w));
 
       let matchIndex = -1;
 
-      // Encontra a janela com a maior densidade de palavras da busca
+      // Procura primeiro pela melhor janela com maior densidade de palavras
       if (queryWords.length >= 2) {
         let bestCount = 0;
         const windowSize = 250;
-        for (let i = 0; i < text.length - windowSize; i += 30) {
+        for (let i = 0; i < text.length - windowSize; i += 50) {
           const slice = text.substring(i, i + windowSize).toLowerCase();
           let count = 0;
           for (const w of queryWords) {
             if (slice.includes(w)) count++;
-            else {
-              const st = getStem(w);
-              if (st.length >= 4 && slice.includes(st)) count += 0.5;
-            }
           }
           if (count > bestCount) {
             bestCount = count;
@@ -525,16 +448,46 @@
       }
 
       if (matchIndex === -1) {
-        return formatSnippetText(text.substring(0, 650) + (text.length > 650 ? '...' : ''));
+        return text.substring(0, 650) + (text.length > 650 ? '...' : '');
       }
 
       const start = Math.max(0, matchIndex - 40);
       const end = Math.min(text.length, matchIndex + 1660);
       let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
 
-      // Converte HTML primeiro e depois aplica o highlight seguro
-      const formattedHtml = formatSnippetText(snippet);
-      return highlightSnippetHtml(formattedHtml, rawQuery);
+      const wordsToHighlight = queryWords.length > 0 ? queryWords : [cleanQ];
+      for (const word of wordsToHighlight) {
+        try {
+          const regHighlight = buildAccentRegex(word);
+          snippet = snippet.replace(regHighlight, '<mark>$&</mark>');
+        } catch (e) {}
+      }
+
+      return snippet;
+    }
+
+    function formatSnippetText(snippetHtml) {
+      if (!snippetHtml) return '';
+
+      let formatted = snippetHtml.replace(
+        /!\[Imagem\]\(([^)]+)\)/g,
+        `<div class="img-container">
+          <img src="$1" 
+               alt="Imagem da Documentação" 
+               onerror="this.onerror=null; this.parentElement.classList.add('img-failed');" 
+               onclick="ampliarImagem('$1')" 
+               title="Clique para ampliar" />
+          <div class="img-fallback-msg">⚠️ Imagem pendente de carregamento no servidor</div>
+         </div>`
+      );
+
+      formatted = formatted.replace(
+        /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener">$1</a>'
+      );
+
+      const urlRegex = /(?<!href=")(?<!src=")(https?:\/\/[^\s<)]+)/g;
+      return formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     }
 
     function render() {
@@ -565,7 +518,7 @@
 
       grid.innerHTML = results.map(d => {
         const parentPath = getParentPathOnly(d);
-        const snippetContent = getSnippet(d.text, rawQuery);
+        const snippetContent = formatSnippetText(getSnippet(d.text, rawQuery));
         return `
           <div class="card">
             ${parentPath ? `<div class="path-parent">${parentPath}</div>` : ''}

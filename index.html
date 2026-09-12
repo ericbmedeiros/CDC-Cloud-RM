@@ -439,6 +439,11 @@
         .trim();
     }
 
+    function removeUrlsFromText(text) {
+      if (!text) return '';
+      return text.replace(/https?:\/\/[^\s<)]+/gi, '');
+    }
+
     function getKeywords(text) {
       const clean = cleanText(text);
       return clean
@@ -451,19 +456,23 @@
       return word.substring(0, Math.min(5, word.length));
     }
 
-    const searchDocs = DOCS.map(d => ({
-      ...d,
-      cleanTitle: cleanText(d.title),
-      cleanText: cleanText(d.text),
-      cleanPath: cleanText(d.path || d.title),
-      titleKeywords: getKeywords(d.title),
-      textKeywords: getKeywords(d.text)
-    }));
+    const searchDocs = DOCS.map(d => {
+      const textWithoutUrls = removeUrlsFromText(d.text);
+      return {
+        ...d,
+        cleanTitle: cleanText(d.title),
+        cleanText: cleanText(textWithoutUrls),
+        rawTextClean: cleanText(d.text),
+        cleanPath: cleanText(d.path || d.title),
+        titleKeywords: getKeywords(d.title),
+        textKeywords: getKeywords(textWithoutUrls)
+      };
+    });
 
     const fuse = new Fuse(searchDocs, {
       keys: [
-        { name: 'title', weight: 0.7 },
-        { name: 'text', weight: 0.3 }
+        { name: 'title', weight: 0.8 },
+        { name: 'text', weight: 0.2 }
       ],
       threshold: 0.3,
       ignoreLocation: true,
@@ -479,8 +488,24 @@
 
       let score = 0;
 
+      // PONTUAÇÃO MASSIVA PARA TÍTULO
+      if (cleanQ.length > 3 && d.cleanTitle.includes(cleanQ)) {
+        score += 80000;
+      }
+
+      let titleMatches = 0;
+      for (const word of queryWords) {
+        if (d.cleanTitle.includes(word)) {
+          titleMatches++;
+        }
+      }
+      if (titleMatches > 0) {
+        score += (titleMatches / queryWords.length) * 50000;
+      }
+
+      // CORPO DO TEXTO (EXCLUINDO LINKS DA CONTAGEM)
       if (cleanQ.length > 3 && d.cleanText.includes(cleanQ)) {
-        score += 35000;
+        score += 25000;
       }
 
       let maxWordsInWindow = 0;
@@ -512,35 +537,29 @@
 
       const totalMatchedDensity = maxWordsInWindow + maxStemsInWindow;
       if (totalMatchedDensity >= 2) {
-        score += Math.pow(totalMatchedDensity, 3) * 2500;
+        score += Math.pow(totalMatchedDensity, 3) * 2000;
       }
 
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
           const pair = queryWords.slice(i, i + 2).join(' ');
           if (d.cleanText.includes(pair)) {
-            score += 4000;
-          } else {
-            const stemPair = queryWords.slice(i, i + 2).map(getStem).join('.{0,15}?');
-            if (new RegExp(stemPair, 'i').test(d.cleanText)) {
-              score += 2000;
-            }
+            score += 3000;
           }
         }
       }
 
-      if (d.cleanTitle.includes(cleanQ)) score += 5000;
-      if (d.cleanPath.includes(cleanQ)) score += 2500;
+      if (d.cleanPath.includes(cleanQ)) score += 3000;
 
       let uniqueMatches = 0;
       for (const word of queryWords) {
         if (d.cleanText.includes(word)) {
-          score += 40;
+          score += 30;
           uniqueMatches++;
         } else {
           const stem = getStem(word);
           if (stem.length >= 4 && d.cleanText.includes(stem)) {
-            score += 20;
+            score += 15;
             uniqueMatches += 0.7;
           }
         }
@@ -784,6 +803,11 @@
       });
     }
 
+    // Tratamento para limpar a pesquisa no X mantendo o usuário na mesma página
+    q.addEventListener('search', () => {
+      render();
+    });
+
     q.addEventListener('input', render);
     count.textContent = `${DOCS.length} documentações carregadas.`;
     render();
@@ -914,25 +938,25 @@
     `).join('');
   }
 
-  function htmlParaMarkdown(element) {
-    let clone = element.cloneNode(true);
-    let imgs = clone.querySelectorAll('img');
-    imgs.forEach(img => {
-      let mdImg = document.createTextNode(`\n\n![Imagem](${img.src})\n\n`);
-      img.parentNode.replaceChild(mdImg, img);
-    });
-    return clone.innerText.trim();
-  }
-
-  async function copiarItemNotion(id) {
+  function copiarItemNotion(id) {
     const contentDiv = document.getElementById(`content-${id}`);
     if (!contentDiv) return;
 
-    const markdownText = htmlParaMarkdown(contentDiv);
-
     try {
-      await navigator.clipboard.writeText(markdownText);
-      alert("Conteúdo e imagens copiados em formato Markdown! Pressione Ctrl+V diretamente no Notion.");
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(contentDiv);
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      const sucesso = document.execCommand('copy');
+      selection.removeAllRanges();
+
+      if (sucesso) {
+        alert("Texto e imagem copiados com sucesso! Pressione Ctrl+V direto no Notion.");
+      } else {
+        alert("Não foi possível copiar automaticamente. Tente selecionar o texto manualmente.");
+      }
     } catch (err) {
       console.error(err);
       alert("Erro ao copiar o conteúdo.");

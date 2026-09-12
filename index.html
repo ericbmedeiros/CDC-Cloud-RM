@@ -68,11 +68,10 @@
       background: transparent;
       border: none;
       color: var(--muted);
-      font-size: 18px;
       cursor: pointer;
       display: none;
-      padding: 4px;
-      line-height: 1;
+      align-items: center;
+      justify-content: center;
       z-index: 10;
     }
     .btn-clear-search:hover { color: var(--text); }
@@ -362,7 +361,9 @@
     <div class="searchRow">
       <div class="search-input-wrapper">
         <input id="q" type="text" class="search-box" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
-        <span class="btn-clear-search" id="btnClearSearch" title="Limpar busca">&times;</span>
+        <div class="btn-clear-search" id="btnClearSearch" title="Limpar busca">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </div>
       </div>
       <button class="btn-action" onclick="document.getElementById('fileInput').click()">
         📷 Anexar Print
@@ -507,22 +508,25 @@
       return word.substring(0, Math.min(5, word.length));
     }
 
+    // Geramos um campo cleanTitleNoStopwords especificamente para garantir a prioridade maxima na busca
     const searchDocs = DOCS.map(d => {
       const textWithoutUrls = removeUrlsFromText(d.text);
+      const titleKws = getKeywords(d.title);
       return {
         ...d,
         cleanTitle: cleanText(d.title),
+        cleanTitleNoStopwords: titleKws.join(' '),
         cleanText: cleanText(textWithoutUrls),
         rawTextClean: cleanText(d.text),
         cleanPath: cleanText(d.path || d.title),
-        titleKeywords: getKeywords(d.title),
+        titleKeywords: titleKws,
         textKeywords: getKeywords(textWithoutUrls)
       };
     });
 
     const fuse = new Fuse(searchDocs, {
       keys: [
-        { name: 'cleanTitle', weight: 0.99 },
+        { name: 'cleanTitleNoStopwords', weight: 0.99 },
         { name: 'cleanText', weight: 0.01 }
       ],
       threshold: 0.4,
@@ -538,27 +542,29 @@
       if (queryWords.length === 0) return 0;
 
       let score = 0;
+      const titleClean = d.cleanTitleNoStopwords;
 
-      // HIERARQUIA DE RELEVÂNCIA: TRAVA DE TÍTULO SOBERANA
+      // PONTUAÇÃO MÁXIMA ABSOLUTA QUANDO PALAVRAS DO OCR COINCIDEM COM O TÍTULO
       let titleMatchedWords = 0;
       for (const word of queryWords) {
-        if (d.cleanTitle.includes(word)) {
+        if (titleClean.includes(word)) {
           titleMatchedWords++;
         }
       }
 
+      const ratioTitle = titleMatchedWords / queryWords.length;
+      if (ratioTitle >= 0.3) {
+        score += Math.pow(titleMatchedWords, 4) * 5000000;
+      }
+
+      // Sequencia de frases no titulo garante prioridade final
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
           const pair = queryWords.slice(i, i + 2).join(' ');
-          if (d.cleanTitle.includes(pair)) {
-            score += 5000000000;
+          if (titleClean.includes(pair)) {
+            score += 100000000;
           }
         }
-      }
-
-      const ratioTitle = titleMatchedWords / queryWords.length;
-      if (ratioTitle >= 0.15) {
-        score += Math.pow(titleMatchedWords, 4) * 100000000;
       }
 
       // CORPO DO TEXTO
@@ -706,7 +712,7 @@
 
     function render() {
       const rawQuery = q.value.trim();
-      btnClearSearch.style.display = rawQuery ? 'block' : 'none';
+      btnClearSearch.style.display = rawQuery ? 'flex' : 'none';
 
       let results = [];
 
@@ -725,7 +731,7 @@
         const queryWords = getKeywords(rawQuery);
         const cleanSearchQuery = queryWords.join(' ');
 
-        // Desativa o Fuse se houver correspondência direta de pontuação alta
+        // Desativa a busca hibrida caso o sistema tenha detectado a pagina alvo com certeza (> 1 milhao de pontos)
         let fuseMatches = [];
         if (directMatches.length === 0 || directMatches[0]._score < 1000000) {
           fuseMatches = fuse.search(cleanSearchQuery || rawQuery)
@@ -826,13 +832,22 @@
       });
     }
 
-    // Ação do Botão X
-    btnClearSearch.onclick = function() {
+    // Bloqueia comportamento nativo do navegador de recarregar a pagina caso o usuario aperte Enter
+    q.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        render();
+      }
+    });
+
+    // Limpa a busca sem mexer na estrutura da pagina
+    btnClearSearch.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
       q.value = '';
-      btnClearSearch.style.display = 'none';
       render();
       q.focus();
-    };
+    });
 
     q.addEventListener('input', render);
     count.textContent = `${DOCS.length} documentações carregadas.`;
@@ -945,9 +960,6 @@
       return;
     }
 
-    // Estrutura Invertida:
-    // Esquerda: Tag (Linha 1) -> Nome da Documentacao ampliado (Linha 2)
-    // Direita: Data/Hora (Linha 1) -> Enviado por: Nome (Linha 2 alinhado no canto direito)
     container.innerHTML = feedbacks.map(item => `
       <div class="fb-item-card" id="item-${item.id}">
         <div class="fb-item-header">
@@ -956,8 +968,8 @@
             <div class="fb-doc-title">${item.doc}</div>
           </div>
           <div class="fb-header-right">
-            <span class="fb-date">${item.data}</span>
             <div class="fb-author">👤 Enviado por: ${item.autor}</div>
+            <div class="fb-date">${item.data}</div>
           </div>
         </div>
         <div class="fb-content" id="content-${item.id}">${item.html}</div>

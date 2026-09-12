@@ -73,7 +73,7 @@
       display: none;
       padding: 4px;
       line-height: 1;
-      z-index: 5;
+      z-index: 10;
     }
     .btn-clear-search:hover { color: var(--text); }
 
@@ -274,31 +274,34 @@
       padding-right: 6px;
     }
 
+    /* Borda verde para facilitar a diferenciacao visual dos cartoes de sugestao */
     .fb-item-card {
       background: #0b0f19;
-      border: 1px solid var(--border);
+      border: 1px solid var(--breadcrumb-green);
       border-radius: 10px;
       padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 8px;
+      box-shadow: 0 0 10px rgba(32, 201, 151, 0.1);
     }
 
     .fb-item-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid rgba(90, 167, 255, 0.1);
+      border-bottom: 1px solid rgba(32, 201, 151, 0.2);
       padding-bottom: 8px;
     }
 
     .fb-tag {
-      background: rgba(90, 167, 255, 0.15);
-      color: var(--accent);
+      background: rgba(32, 201, 151, 0.15);
+      color: var(--breadcrumb-green);
       padding: 3px 8px;
       border-radius: 4px;
       font-size: 11px;
       font-weight: 700;
+      border: 1px solid rgba(32, 201, 151, 0.3);
     }
 
     .fb-author {
@@ -518,7 +521,7 @@
 
       let score = 0;
 
-      // PONTUAÇÃO MÁXIMA ABSOLUTA QUANDO PALAVRAS DO OCR COINCIDEM COM O TÍTULO
+      // PONTUAÇÃO DE PRECEDÊNCIA MÁXIMA SE AS PALAVRAS COINCIDIREM COM O TÍTULO
       let titleMatchedWords = 0;
       for (const word of queryWords) {
         if (d.cleanTitle.includes(word)) {
@@ -527,23 +530,22 @@
       }
 
       const ratioTitle = titleMatchedWords / queryWords.length;
-      if (ratioTitle >= 0.3) {
-        score += Math.pow(titleMatchedWords, 4) * 5000000;
+      if (ratioTitle >= 0.25) {
+        score += Math.pow(titleMatchedWords, 4) * 50000000;
       }
 
-      // Sequência de 3+ palavras no título
       if (queryWords.length >= 3) {
         for (let i = 0; i <= queryWords.length - 3; i++) {
           const trio = queryWords.slice(i, i + 3).join(' ');
           if (d.cleanTitle.includes(trio)) {
-            score += 100000000;
+            score += 500000000;
           }
         }
       }
 
       // CORPO DO TEXTO
       if (cleanQ.length > 5 && d.cleanText.includes(cleanQ)) {
-        score += 15000;
+        score += 10000;
       }
 
       let maxWordsInWindow = 0;
@@ -563,7 +565,7 @@
       }
 
       if (maxWordsInWindow >= 2) {
-        score += Math.pow(maxWordsInWindow, 3) * 1000;
+        score += Math.pow(maxWordsInWindow, 3) * 500;
       }
 
       return score;
@@ -802,14 +804,18 @@
       });
     }
 
-    // Ação do Botão X de Limpeza sem Recarregar
-    btnClearSearch.addEventListener('click', function(e) {
-      e.preventDefault();
+    // Acao manual do Botao X para limpar o input sem recarregar a pagina
+    btnClearSearch.onclick = function(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       q.value = '';
       btnClearSearch.style.display = 'none';
       render();
       q.focus();
-    });
+      return false;
+    };
 
     q.addEventListener('input', render);
     count.textContent = `${DOCS.length} documentações carregadas.`;

@@ -49,6 +49,8 @@
       flex: 1;
       display: flex;
       align-items: center;
+      margin: 0;
+      padding: 0;
     }
 
     input.search-box { 
@@ -358,18 +360,21 @@
         <button class="btn-action" onclick="abrirPainelSugestoes()">📥 Painel de Sugestões</button>
       </div>
     </div>
-    <div class="searchRow">
+    
+    <!-- Formulário cego: Impede que o X e o Enter deem reload na página nativamente -->
+    <form class="searchRow" onsubmit="event.preventDefault(); return false;">
       <div class="search-input-wrapper">
         <input id="q" type="text" class="search-box" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
         <div class="btn-clear-search" id="btnClearSearch" title="Limpar busca">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </div>
       </div>
-      <button class="btn-action" onclick="document.getElementById('fileInput').click()">
+      <button type="button" class="btn-action" onclick="document.getElementById('fileInput').click()">
         📷 Anexar Print
       </button>
       <input type="file" id="fileInput" accept="image/*" />
-    </div>
+    </form>
+    
     <div class="ocr-status" id="ocrStatus">Processando imagem e lendo texto do erro...</div>
     <div class="count" id="count">Carregando índice...</div>
   </div>
@@ -508,7 +513,6 @@
       return word.substring(0, Math.min(5, word.length));
     }
 
-    // Geramos um campo cleanTitleNoStopwords especificamente para garantir a prioridade maxima na busca
     const searchDocs = DOCS.map(d => {
       const textWithoutUrls = removeUrlsFromText(d.text);
       const titleKws = getKeywords(d.title);
@@ -542,22 +546,21 @@
       if (queryWords.length === 0) return 0;
 
       let score = 0;
-      const titleClean = d.cleanTitleNoStopwords;
 
-      // PONTUAÇÃO MÁXIMA ABSOLUTA QUANDO PALAVRAS DO OCR COINCIDEM COM O TÍTULO
+      // 1. TÍTULO: Correspondência absoluta de frases do título (N-Grams)
+      const titleClean = d.cleanTitleNoStopwords;
+      
       let titleMatchedWords = 0;
       for (const word of queryWords) {
         if (titleClean.includes(word)) {
           titleMatchedWords++;
         }
       }
-
       const ratioTitle = titleMatchedWords / queryWords.length;
       if (ratioTitle >= 0.3) {
         score += Math.pow(titleMatchedWords, 4) * 5000000;
       }
 
-      // Sequencia de frases no titulo garante prioridade final
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
           const pair = queryWords.slice(i, i + 2).join(' ');
@@ -567,11 +570,31 @@
         }
       }
 
-      // CORPO DO TEXTO
+      // 2. CORPO DO TEXTO: Procurar por grandes blocos em sequência (Frases gigantes de erro)
+      // Se acharmos uma grande sequência de palavras exatas no corpo do texto, ele deve ganhar ABSOLUTAMENTE.
+      let longestSeq = 0;
+      for(let len = Math.min(queryWords.length, 15); len >= 3; len--) {
+          for(let i = 0; i <= queryWords.length - len; i++) {
+              const phrase = queryWords.slice(i, i+len).join(' ');
+              if (d.cleanText.includes(phrase)) {
+                  if (len > longestSeq) longestSeq = len;
+              }
+          }
+          if (longestSeq > 0) break; // achou a maior sequencia possivel
+      }
+      
+      // Bonus colossal se achar frases com mais de 4 palavras coladas (OCR Error) no corpo do texto
+      if (longestSeq >= 4) {
+          score += Math.pow(longestSeq, 5) * 5000000; 
+      } else if (longestSeq === 3) {
+          score += 500000;
+      }
+
+      // 3. Ocorrências dispersas no corpo
       if (cleanQ.length > 5 && d.cleanText.includes(cleanQ)) {
         score += 10000;
       }
-
+      
       let maxWordsInWindow = 0;
       const windowSize = 250;
 
@@ -731,9 +754,9 @@
         const queryWords = getKeywords(rawQuery);
         const cleanSearchQuery = queryWords.join(' ');
 
-        // Desativa a busca hibrida caso o sistema tenha detectado a pagina alvo com certeza (> 1 milhao de pontos)
+        // Desativa a busca hibrida caso o sistema tenha detectado a pagina alvo com certeza
         let fuseMatches = [];
-        if (directMatches.length === 0 || directMatches[0]._score < 1000000) {
+        if (directMatches.length === 0 || directMatches[0]._score < 500000) {
           fuseMatches = fuse.search(cleanSearchQuery || rawQuery)
             .map(r => r.item)
             .filter(d => !directMatches.some(dm => dm.id === d.id));
@@ -832,7 +855,7 @@
       });
     }
 
-    // Bloqueia comportamento nativo do navegador de recarregar a pagina caso o usuario aperte Enter
+    // Previne Enter de recarregar a pagina
     q.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -840,13 +863,16 @@
       }
     });
 
-    // Limpa a busca sem mexer na estrutura da pagina
+    // Limpa a busca nativa e manual mantendo o local original da pagina
     btnClearSearch.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
       q.value = '';
       render();
+      
+      const scrollY = window.scrollY;
       q.focus();
+      window.scrollTo(0, scrollY);
     });
 
     q.addEventListener('input', render);
@@ -960,6 +986,9 @@
       return;
     }
 
+    // Inversao Solicitada: 
+    // Esquerda: Tag (Linha 1) -> Nome da Documentação (Linha 2)
+    // Direita: Enviado por (Linha 1) -> Data/Hora (Linha 2)
     container.innerHTML = feedbacks.map(item => `
       <div class="fb-item-card" id="item-${item.id}">
         <div class="fb-item-header">

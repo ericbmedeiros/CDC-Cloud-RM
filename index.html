@@ -115,7 +115,7 @@
       margin-top: 8px; 
       white-space: pre-wrap;
       word-break: break-word;
-      max-height: 500px;
+      max-height: 600px;
       overflow-y: auto;
       background: rgba(4, 8, 16, 0.55); 
       padding: 12px 16px;
@@ -360,12 +360,11 @@
         <button class="btn-action" onclick="abrirPainelSugestoes()">📥 Painel de Sugestões</button>
       </div>
     </div>
-    
-    <!-- Formulário cego: Impede que o X e o Enter deem reload na página nativamente -->
+    <!-- Formulário cego bloqueando a acao padrao de reload -->
     <form class="searchRow" onsubmit="event.preventDefault(); return false;">
       <div class="search-input-wrapper">
         <input id="q" type="text" class="search-box" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
-        <div class="btn-clear-search" id="btnClearSearch" title="Limpar busca">
+        <div class="btn-clear-search" id="btnClearSearch" title="Remover destaques e limpar busca">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </div>
       </div>
@@ -546,16 +545,13 @@
       if (queryWords.length === 0) return 0;
 
       let score = 0;
-
-      // 1. TÍTULO: Correspondência absoluta de frases do título (N-Grams)
       const titleClean = d.cleanTitleNoStopwords;
-      
+
       let titleMatchedWords = 0;
       for (const word of queryWords) {
-        if (titleClean.includes(word)) {
-          titleMatchedWords++;
-        }
+        if (titleClean.includes(word)) titleMatchedWords++;
       }
+
       const ratioTitle = titleMatchedWords / queryWords.length;
       if (ratioTitle >= 0.3) {
         score += Math.pow(titleMatchedWords, 4) * 5000000;
@@ -570,8 +566,7 @@
         }
       }
 
-      // 2. CORPO DO TEXTO: Procurar por grandes blocos em sequência (Frases gigantes de erro)
-      // Se acharmos uma grande sequência de palavras exatas no corpo do texto, ele deve ganhar ABSOLUTAMENTE.
+      // CORRECAO DA BUSCA: Focar na sequencia exata encontrada no CORPO DO TEXTO
       let longestSeq = 0;
       for(let len = Math.min(queryWords.length, 15); len >= 3; len--) {
           for(let i = 0; i <= queryWords.length - len; i++) {
@@ -580,17 +575,16 @@
                   if (len > longestSeq) longestSeq = len;
               }
           }
-          if (longestSeq > 0) break; // achou a maior sequencia possivel
+          if (longestSeq > 0) break; // achou a maior combinacao do erro
       }
       
-      // Bonus colossal se achar frases com mais de 4 palavras coladas (OCR Error) no corpo do texto
+      // Se achou uma grande sequencia exata do erro no texto, garantir a posicao 1
       if (longestSeq >= 4) {
           score += Math.pow(longestSeq, 5) * 5000000; 
       } else if (longestSeq === 3) {
           score += 500000;
       }
 
-      // 3. Ocorrências dispersas no corpo
       if (cleanQ.length > 5 && d.cleanText.includes(cleanQ)) {
         score += 10000;
       }
@@ -688,20 +682,22 @@
 
       if (queryWords.length >= 2) {
         let bestCount = 0;
-        const windowSize = 250;
-        for (let i = 0; i < text.length - windowSize; i += 30) {
+        const windowSize = 350; // Janela um pouco maior para englobar o bloco do erro inteiro
+        const maxI = Math.max(0, text.length - windowSize);
+        
+        for (let i = 0; i <= maxI; i += 40) {
           const slice = text.substring(i, i + windowSize);
           
           const isUrl = /^https?:\/\//i.test(slice.trim());
           if (isUrl) continue;
 
           let count = 0;
-          const lowerSlice = slice.toLowerCase();
+          const cSlice = cleanText(slice); // Remocao de acentos do bloco garantida
           for (const w of queryWords) {
-            if (lowerSlice.includes(w)) count++;
+            if (cSlice.includes(w)) count++;
             else {
               const st = getStem(w);
-              if (st.length >= 4 && lowerSlice.includes(st)) count += 0.5;
+              if (st.length >= 4 && cSlice.includes(st)) count += 0.5;
             }
           }
           if (count > bestCount) {
@@ -725,8 +721,8 @@
         return formatSnippetText(text.substring(0, 650) + (text.length > 650 ? '...' : ''));
       }
 
-      const start = Math.max(0, matchIndex - 180);
-      const end = Math.min(text.length, matchIndex + 1620);
+      const start = Math.max(0, matchIndex - 120);
+      const end = Math.min(text.length, matchIndex + 800);
       let snippet = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
 
       const formattedHtml = formatSnippetText(snippet);
@@ -754,9 +750,8 @@
         const queryWords = getKeywords(rawQuery);
         const cleanSearchQuery = queryWords.join(' ');
 
-        // Desativa a busca hibrida caso o sistema tenha detectado a pagina alvo com certeza
         let fuseMatches = [];
-        if (directMatches.length === 0 || directMatches[0]._score < 500000) {
+        if (directMatches.length === 0 || directMatches[0]._score < 1000000) {
           fuseMatches = fuse.search(cleanSearchQuery || rawQuery)
             .map(r => r.item)
             .filter(d => !directMatches.some(dm => dm.id === d.id));
@@ -855,24 +850,23 @@
       });
     }
 
-    // Previne Enter de recarregar a pagina
-    q.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        render();
-      }
-    });
-
-    // Limpa a busca nativa e manual mantendo o local original da pagina
+    // Comportamento EXCLUSIVO para remover os highlights azuis sem atualizar a pagina 
     btnClearSearch.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
-      q.value = '';
-      render();
       
-      const scrollY = window.scrollY;
-      q.focus();
-      window.scrollTo(0, scrollY);
+      q.value = '';
+      btnClearSearch.style.display = 'none';
+      
+      // Procura todas as marcações na tela e remove o highlight mantendo o texto exato
+      const marks = document.getElementById('grid').querySelectorAll('mark');
+      marks.forEach(mark => {
+        const parent = mark.parentNode;
+        const textNode = document.createTextNode(mark.textContent);
+        parent.replaceChild(textNode, mark);
+        parent.normalize(); 
+      });
+      // Importante: Nao executamos o render() nem o q.focus() para que a pagina nao se mexa e o texto permaneca.
     });
 
     q.addEventListener('input', render);
@@ -986,9 +980,9 @@
       return;
     }
 
-    // Inversao Solicitada: 
-    // Esquerda: Tag (Linha 1) -> Nome da Documentação (Linha 2)
-    // Direita: Enviado por (Linha 1) -> Data/Hora (Linha 2)
+    // Cabecalho atualizado:
+    // Dir Cima: Enviado por | Esq Cima: Tipo do chamado
+    // Dir Baixo: Data | Esq Baixo: Titulo da documentação
     container.innerHTML = feedbacks.map(item => `
       <div class="fb-item-card" id="item-${item.id}">
         <div class="fb-item-header">

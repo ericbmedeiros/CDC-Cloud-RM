@@ -539,16 +539,7 @@
 
       let score = 0;
 
-      // PONTUAÇÃO MÁXIMA DE SEQUÊNCIA DE TÍTULO
-      if (queryWords.length >= 2) {
-        for (let i = 0; i <= queryWords.length - 2; i++) {
-          const pair = queryWords.slice(i, i + 2).join(' ');
-          if (d.cleanTitle.includes(pair)) {
-            score += 2000000000;
-          }
-        }
-      }
-
+      // HIERARQUIA DE RELEVÂNCIA: TRAVA DE TÍTULO SOBERANA
       let titleMatchedWords = 0;
       for (const word of queryWords) {
         if (d.cleanTitle.includes(word)) {
@@ -556,9 +547,18 @@
         }
       }
 
+      if (queryWords.length >= 2) {
+        for (let i = 0; i <= queryWords.length - 2; i++) {
+          const pair = queryWords.slice(i, i + 2).join(' ');
+          if (d.cleanTitle.includes(pair)) {
+            score += 5000000000;
+          }
+        }
+      }
+
       const ratioTitle = titleMatchedWords / queryWords.length;
-      if (ratioTitle >= 0.2) {
-        score += Math.pow(titleMatchedWords, 4) * 20000000;
+      if (ratioTitle >= 0.15) {
+        score += Math.pow(titleMatchedWords, 4) * 100000000;
       }
 
       // CORPO DO TEXTO
@@ -725,9 +725,13 @@
         const queryWords = getKeywords(rawQuery);
         const cleanSearchQuery = queryWords.join(' ');
 
-        const fuseMatches = fuse.search(cleanSearchQuery || rawQuery)
-          .map(r => r.item)
-          .filter(d => !directMatches.some(dm => dm.id === d.id));
+        // Desativa o Fuse se houver correspondência direta de pontuação alta
+        let fuseMatches = [];
+        if (directMatches.length === 0 || directMatches[0]._score < 1000000) {
+          fuseMatches = fuse.search(cleanSearchQuery || rawQuery)
+            .map(r => r.item)
+            .filter(d => !directMatches.some(dm => dm.id === d.id));
+        }
 
         results = [...directMatches, ...fuseMatches];
       }
@@ -822,7 +826,7 @@
       });
     }
 
-    // Clique limpo do botao X sem recarregar pagina
+    // Ação do Botão X
     btnClearSearch.onclick = function() {
       q.value = '';
       btnClearSearch.style.display = 'none';
@@ -941,9 +945,9 @@
       return;
     }
 
-    // Layout Solicitado:
-    // Esquerda: Tag (Linha 1) -> Nome da Documentação (Linha 2 ampliado)
-    // Direita: Data/Hora (Linha 1) -> Enviado por (Linha 2 alinhado no canto direito)
+    // Estrutura Invertida:
+    // Esquerda: Tag (Linha 1) -> Nome da Documentacao ampliado (Linha 2)
+    // Direita: Data/Hora (Linha 1) -> Enviado por: Nome (Linha 2 alinhado no canto direito)
     container.innerHTML = feedbacks.map(item => `
       <div class="fb-item-card" id="item-${item.id}">
         <div class="fb-item-header">

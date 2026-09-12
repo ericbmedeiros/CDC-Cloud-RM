@@ -288,9 +288,22 @@
     .fb-item-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       border-bottom: 1px solid rgba(90, 167, 255, 0.2);
       padding-bottom: 8px;
+    }
+
+    .fb-header-line1 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .fb-header-line2 {
+      margin-top: 4px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
     }
 
     .fb-tag {
@@ -301,13 +314,14 @@
       font-size: 11px;
       font-weight: 700;
       border: 1px solid rgba(90, 167, 255, 0.3);
+      display: inline-block;
     }
 
     .fb-author {
       color: #e8eefc;
       font-size: 12px;
       font-weight: 600;
-      margin-top: 4px;
+      display: inline-block;
     }
 
     .fb-date {
@@ -343,7 +357,7 @@
     <div class="searchRow">
       <div class="search-input-wrapper">
         <input id="q" type="text" class="search-box" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
-        <button type="button" class="btn-clear-search" id="btnClearSearch" title="Limpar busca">&times;</button>
+        <span class="btn-clear-search" id="btnClearSearch" title="Limpar busca">&times;</span>
       </div>
       <button class="btn-action" onclick="document.getElementById('fileInput').click()">
         📷 Anexar Print
@@ -520,6 +534,7 @@
 
       let score = 0;
 
+      // PONTUAÇÃO DE ORDENAÇÃO DE TÍTULO ABSOLUTA
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
           const pair = queryWords.slice(i, i + 2).join(' ');
@@ -541,6 +556,7 @@
         score += Math.pow(titleMatchedWords, 4) * 10000000;
       }
 
+      // CORPO DO TEXTO
       if (cleanQ.length > 5 && d.cleanText.includes(cleanQ)) {
         score += 10000;
       }
@@ -801,12 +817,13 @@
       });
     }
 
-    btnClearSearch.onclick = function() {
+    // Clique limpo do botao X
+    btnClearSearch.addEventListener('click', function(evt) {
       q.value = '';
       btnClearSearch.style.display = 'none';
       render();
       q.focus();
-    };
+    });
 
     q.addEventListener('input', render);
     count.textContent = `${DOCS.length} documentações carregadas.`;
@@ -919,16 +936,18 @@
       return;
     }
 
-    // Invertida a posicao: Etiqueta + Titulo na primeira linha; Enviado por na linha abaixo
+    // Estrutura solicitada:
+    // Linha 1: Tag + Enviado por
+    // Linha 2: Nome da documentação relacionada
     container.innerHTML = feedbacks.map(item => `
       <div class="fb-item-card" id="item-${item.id}">
         <div class="fb-item-header">
           <div>
-            <div>
+            <div class="fb-header-line1">
               <span class="fb-tag">${item.tipo}</span>
-              <strong style="margin-left: 8px; font-size: 13px;">${item.doc}</strong>
+              <div class="fb-author">👤 Enviado por: ${item.autor}</div>
             </div>
-            <div class="fb-author">👤 Enviado por: ${item.autor}</div>
+            <div class="fb-header-line2">${item.doc}</div>
           </div>
           <span class="fb-date">${item.data}</span>
         </div>

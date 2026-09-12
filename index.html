@@ -15,6 +15,7 @@
       --highlight: #ffffff; 
       --border: rgba(90, 167, 255, 0.15);
       --breadcrumb-green: #20c997;
+      --danger: #ff5252;
     }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
@@ -182,11 +183,13 @@
     .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
     .btn-submit { background: var(--accent); color: #000; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; }
     .btn-cancel { background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 10px 18px; border-radius: 8px; cursor: pointer; }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid rgba(255, 82, 82, 0.3); padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn-danger:hover { background: rgba(255, 82, 82, 0.15); }
 	
     #fbEditor {
       width: 100%;
-      min-height: 260px;
-      max-height: 480px;
+      min-height: 220px;
+      max-height: 400px;
       overflow-y: auto;
       background: #0b0f19;
       color: var(--text);
@@ -214,6 +217,84 @@
       border: 1px solid var(--border);
       display: block;
     }
+
+    .painel-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(90, 167, 255, 0.1);
+      padding-bottom: 12px;
+    }
+
+    .painel-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-height: 60vh;
+      overflow-y: auto;
+      padding-right: 6px;
+    }
+
+    .fb-item-card {
+      background: #0b0f19;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .fb-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(90, 167, 255, 0.1);
+      padding-bottom: 8px;
+    }
+
+    .fb-tag {
+      background: rgba(90, 167, 255, 0.15);
+      color: var(--accent);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .fb-author {
+      color: #e8eefc;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .fb-date {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .fb-content {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+
+    .fb-content img {
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 6px;
+      margin: 8px 0;
+      border: 1px solid var(--border);
+    }
+
+    .fb-item-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
@@ -222,7 +303,7 @@
     <div class="top">
       <div class="brand">Central de Conhecimento - Suporte Cloud (RM)</div>
       <div class="actions-top">
-        <button class="btn-action" onclick="abrirModalFeedback()">💡 Sugestões / Correções</button>
+        <button class="btn-action" onclick="abrirPainelSugestoes()">📥 Painel de Sugestões</button>
       </div>
     </div>
     <div class="searchRow">
@@ -243,14 +324,17 @@
   </div>
 </main>
 
-<!-- Modal de Feedback Atualizado e Ampliado -->
+<!-- Modal de Envio de Feedback -->
 <div class="modal-backdrop" id="modalFeedback">
   <div class="modal-box" style="max-width: 800px; width: 90%;">
     <div class="modal-header">
-      <h3>Sugestão ou Correção de Documentação</h3>
+      <h3>Adicionar Sugestão ou Correção de Documentação</h3>
       <button class="modal-close" onclick="fecharModalFeedback()">&times;</button>
     </div>
     <div class="modal-body">
+      <label for="fbAutor">Seu Nome / E-mail (Para contato)</label>
+      <input type="text" id="fbAutor" placeholder="Ex: João Silva (joao.silva@empresa.com)" />
+
       <label for="fbTipo">Tipo de Envio</label>
       <select id="fbTipo">
         <option value="Sugestão de Melhoria">Sugestão de Melhoria</option>
@@ -265,9 +349,28 @@
       <div id="uploadStatus" style="font-size: 12px; color: var(--accent); margin-top: 4px; display: none;">Processando imagem...</div>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" onclick="copiarConteudoNotion()">📋 Copiar em Markdown</button>
       <button class="btn-cancel" onclick="fecharModalFeedback()">Cancelar</button>
-      <button class="btn-submit" id="btnEnviarFb" onclick="enviarFeedback()">Enviar Feedback</button>
+      <button class="btn-submit" id="btnEnviarFb" onclick="salvarFeedbackLocal()">Enviar Feedback</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal do Painel de Gerenciamento de Sugestões -->
+<div class="modal-backdrop" id="modalPainel">
+  <div class="modal-box" style="max-width: 850px; width: 95%;">
+    <div class="modal-header">
+      <h3>📥 Painel de Sugestões e Correções</h3>
+      <button class="modal-close" onclick="fecharPainelSugestoes()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="painel-top-bar">
+        <span style="font-size: 13px; color: var(--muted);">Visualize ou adicione contribuições para a documentação:</span>
+        <button class="btn-action" onclick="abrirModalFeedback()">➕ Nova Sugestão / Correção</button>
+      </div>
+      <div class="painel-list" id="painelList"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="fecharPainelSugestoes()">Fechar</button>
     </div>
   </div>
 </div>
@@ -653,7 +756,8 @@
 
     document.addEventListener('paste', (e) => {
       const modalVisivel = document.getElementById('modalFeedback').style.display === 'flex';
-      if (!modalVisivel) {
+      const painelVisivel = document.getElementById('modalPainel').style.display === 'flex';
+      if (!modalVisivel && !painelVisivel) {
         const items = (e.clipboardData || e.originalEvent.clipboardData).items;
         for (const item of items) {
           if (item.type.indexOf("image") === 0) {
@@ -706,7 +810,6 @@
     document.getElementById('modalFeedback').style.display = 'flex';
   }
 
-  // Converte a imagem colada em Base64 localmente (sem erro de API externa/CORS)
   function processarImagemLocal(file) {
     const status = document.getElementById('uploadStatus');
     status.style.display = 'block';
@@ -726,72 +829,124 @@
     reader.readAsDataURL(file);
   }
 
-  function converterEditorParaMarkdown() {
-    const editor = document.getElementById('fbEditor');
-    if (!editor) return '';
-    let clone = editor.cloneNode(true);
-
-    const imgs = clone.querySelectorAll('img');
-    imgs.forEach(img => {
-      const mdNode = document.createTextNode(`\n![Imagem](${img.src})\n`);
-      img.parentNode.replaceChild(mdNode, img);
-    });
-
-    return clone.innerText.trim();
-  }
-
-  function copiarConteudoNotion() {
-    const textoMarkdown = converterEditorParaMarkdown();
-    if (!textoMarkdown) {
-      alert("O editor está vazio!");
-      return;
-    }
-    navigator.clipboard.writeText(textoMarkdown).then(() => {
-      alert("Conteúdo e imagens copiados em formato Markdown! Pode colar direto no Notion.");
-    });
-  }
-
   function fecharModalFeedback() {
     document.getElementById('modalFeedback').style.display = 'none';
     const editor = document.getElementById('fbEditor');
     const docInput = document.getElementById('fbDoc');
+    const autorInput = document.getElementById('fbAutor');
     if (editor) editor.innerHTML = '';
     if (docInput) docInput.value = '';
+    if (autorInput) autorInput.value = '';
   }
 
-  async function enviarFeedback() {
+  function salvarFeedbackLocal() {
+    const autor = document.getElementById('fbAutor').value.trim();
     const tipo = document.getElementById('fbTipo').value;
     const doc = document.getElementById('fbDoc').value.trim();
-    const detalhes = converterEditorParaMarkdown();
-    const btnSubmit = document.getElementById('btnEnviarFb');
+    const editor = document.getElementById('fbEditor');
+    const htmlContent = editor.innerHTML.trim();
+    const textContent = editor.innerText.trim();
 
-    if (!detalhes) {
+    if (!autor) {
+      alert("Por favor, preencha o campo de identificação (Seu Nome / E-mail).");
+      return;
+    }
+
+    if (!textContent) {
       alert("Por favor, preencha o detalhamento da sugestão/correção.");
       return;
     }
 
-    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby4DpvREnIJFKpplUKwQjcyUrelvbtgobfiyQObfNG9dhL0ycaVFszjOh4--w4hev2h/exec";
+    const feedbacks = JSON.parse(localStorage.getItem('cdc_feedbacks') || '[]');
 
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = "Enviando...";
+    const novoFeedback = {
+      id: Date.now(),
+      autor: autor,
+      data: new Date().toLocaleString('pt-BR'),
+      tipo: tipo,
+      doc: doc || 'Geral',
+      html: htmlContent,
+      texto: textContent
+    };
 
-    const urlComParametros = `${WEBHOOK_URL}?tipo=${encodeURIComponent(tipo)}&doc=${encodeURIComponent(doc || 'Geral')}&detalhes=${encodeURIComponent(detalhes)}`;
+    feedbacks.unshift(novoFeedback);
+    localStorage.setItem('cdc_feedbacks', JSON.stringify(feedbacks));
+
+    alert("Sugestão enviada com sucesso para o Painel!");
+    fecharModalFeedback();
+
+    const modalPainel = document.getElementById('modalPainel');
+    if (modalPainel && modalPainel.style.display === 'flex') {
+      renderizarPainel();
+    }
+  }
+
+  function abrirPainelSugestoes() {
+    renderizarPainel();
+    document.getElementById('modalPainel').style.display = 'flex';
+  }
+
+  function fecharPainelSugestoes() {
+    document.getElementById('modalPainel').style.display = 'none';
+  }
+
+  function renderizarPainel() {
+    const container = document.getElementById('painelList');
+    const feedbacks = JSON.parse(localStorage.getItem('cdc_feedbacks') || '[]');
+
+    if (feedbacks.length === 0) {
+      container.innerHTML = `<p style="color: var(--muted); text-align: center; padding: 20px;">Nenhuma sugestão ou correção registrada até o momento.</p>`;
+      return;
+    }
+
+    container.innerHTML = feedbacks.map(item => `
+      <div class="fb-item-card" id="item-${item.id}">
+        <div class="fb-item-header">
+          <div>
+            <span class="fb-tag">${item.tipo}</span>
+            <strong style="margin-left: 8px; font-size: 13px;">${item.doc}</strong>
+            <div class="fb-author">👤 Enviado por: ${item.autor}</div>
+          </div>
+          <span class="fb-date">${item.data}</span>
+        </div>
+        <div class="fb-content">${item.html}</div>
+        <div class="fb-item-actions">
+          <button class="btn-action" onclick="copiarItemNotion(${item.id})">📋 Copiar p/ Notion</button>
+          <button class="btn-danger" onclick="excluirFeedback(${item.id})">🗑️ Excluir</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function copiarItemNotion(id) {
+    const feedbacks = JSON.parse(localStorage.getItem('cdc_feedbacks') || '[]');
+    const item = feedbacks.find(f => f.id === id);
+    if (!item) return;
 
     try {
-      await fetch(urlComParametros, {
-        method: "GET",
-        mode: "no-cors",
-        credentials: "omit"
-      });
+      const blobHtml = new Blob([item.html], { type: 'text/html' });
+      const blobText = new Blob([item.texto], { type: 'text/plain' });
 
-      alert("Obrigado! Sua sugestão/correção foi registrada na planilha com sucesso.");
-      fecharModalFeedback();
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': blobHtml,
+          'text/plain': blobText
+        })
+      ]);
+
+      alert("Conteúdo e imagem copiados! Cole direto no Notion (Ctrl+V).");
     } catch (err) {
-      alert("Erro ao enviar o feedback. Tente novamente.");
-    } finally {
-      btnSubmit.disabled = false;
-      btnSubmit.textContent = "Enviar Feedback";
+      alert("Erro ao copiar o conteúdo.");
     }
+  }
+
+  function excluirFeedback(id) {
+    if (!confirm("Tem certeza que deseja excluir esta sugestão?")) return;
+
+    let feedbacks = JSON.parse(localStorage.getItem('cdc_feedbacks') || '[]');
+    feedbacks = feedbacks.filter(f => f.id !== id);
+    localStorage.setItem('cdc_feedbacks', JSON.stringify(feedbacks));
+    renderizarPainel();
   }
 </script>
 </body>

@@ -250,7 +250,6 @@
       display: block;
     }
 
-    /* Garante que imagens fiquem sempre em bloco unico sem estourar o texto */
     #fbEditor img, .fb-content img {
       display: block;
       max-width: 100%;
@@ -462,7 +461,7 @@
     const STOP_WORDS = new Set([
       "de", "da", "do", "das", "dos", "ao", "aos", "em", "na", "nos", "nas", 
       "por", "para", "com", "um", "uma", "o", "a", "os", "as", "se", "foi", 
-      "que", "ha", "este", "esta", "and", "or", "to", "in", "for", "with", "of"
+      "que", "ha", "este", "esta", "and", "or", "to", "in", "for", "with", "of", "vw", "atencao"
     ]);
 
     function cleanText(s) {
@@ -508,8 +507,8 @@
 
     const fuse = new Fuse(searchDocs, {
       keys: [
-        { name: 'cleanTitle', weight: 0.95 },
-        { name: 'cleanText', weight: 0.05 }
+        { name: 'cleanTitle', weight: 0.98 },
+        { name: 'cleanText', weight: 0.02 }
       ],
       threshold: 0.4,
       ignoreLocation: true,
@@ -525,30 +524,29 @@
 
       let score = 0;
 
-      let titleMatchedWords = 0;
+      // ALGORITMO DE PESO ABSOLUTO PARA TÍTULO
+      let titleMatches = 0;
       for (const word of queryWords) {
         if (d.cleanTitle.includes(word)) {
-          titleMatchedWords++;
+          titleMatches++;
         }
       }
 
-      if (titleMatchedWords >= 3) {
-        score += (titleMatchedWords / queryWords.length) * 1000000;
+      if (titleMatches >= 3) {
+        score += (titleMatches / queryWords.length) * 10000000;
       }
 
-      if (cleanQ.length > 5 && d.cleanTitle.includes(cleanQ)) {
-        score += 2000000;
-      }
-
+      // Pontuação de frases encadeadas no título
       if (queryWords.length >= 2) {
         for (let i = 0; i <= queryWords.length - 2; i++) {
           const pair = queryWords.slice(i, i + 2).join(' ');
           if (d.cleanTitle.includes(pair)) {
-            score += 500000;
+            score += 2000000;
           }
         }
       }
 
+      // CORPO DO TEXTO
       if (cleanQ.length > 5 && d.cleanText.includes(cleanQ)) {
         score += 15000;
       }
@@ -811,7 +809,9 @@
 
     btnClearSearch.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       q.value = '';
+      btnClearSearch.style.display = 'none';
       render();
       q.focus();
     });
@@ -952,17 +952,31 @@
 
     try {
       const clone = contentDiv.cloneNode(true);
+
+      // Substitui elementos de bloco e imagens por quebras de linha estritas
       const imgs = clone.querySelectorAll('img');
       imgs.forEach(img => img.remove());
 
-      const textoLimpo = clone.innerText.trim();
+      const blocks = clone.querySelectorAll('div, p, br, li');
+      blocks.forEach(b => {
+        if (b.tagName.toLowerCase() === 'br') {
+          b.replaceWith('\n');
+        } else {
+          b.prepend('\n');
+        }
+      });
+
+      const textoLimpo = clone.innerText
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
       if (!textoLimpo) {
         alert("Esta sugestão possui apenas imagens.");
         return;
       }
 
       await navigator.clipboard.writeText(textoLimpo);
-      alert("✅ Texto e estrutura copiados com sucesso! Pressione Ctrl+V no Notion para colar o conteúdo.");
+      alert("✅ Texto e estrutura de linhas copiados com sucesso! Pressione Ctrl+V no Notion.");
     } catch (err) {
       console.error(err);
       alert("Erro ao copiar o texto.");

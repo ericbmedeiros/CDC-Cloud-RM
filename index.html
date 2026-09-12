@@ -812,7 +812,7 @@
   }
 
   function abrirModalFeedback() {
-    fecharPainelSugestoes(); // Fecha o painel de fundo para abrir o pop-up limpo
+    fecharPainelSugestoes();
     document.getElementById('modalFeedback').style.display = 'flex';
   }
 
@@ -911,7 +911,7 @@
           </div>
           <span class="fb-date">${item.data}</span>
         </div>
-        <div class="fb-content">${item.html}</div>
+        <div class="fb-content" id="content-${item.id}">${item.html}</div>
         <div class="fb-item-actions">
           <button class="btn-action" onclick="copiarItemNotion(${item.id})">📋 Copiar p/ Notion</button>
           <button class="btn-danger" onclick="excluirFeedback(${item.id})">🗑️ Excluir</button>
@@ -920,7 +920,6 @@
     `).join('');
   }
 
-  // Converte string Base64 para objeto Blob binário nativo
   function base64ToBlob(base64, mimeType = 'image/png') {
     const byteCharacters = atob(base64.split(',')[1]);
     const byteArrays = [];
@@ -937,38 +936,38 @@
   }
 
   async function copiarItemNotion(id) {
-    const feedbacks = JSON.parse(localStorage.getItem('cdc_feedbacks') || '[]');
-    const item = feedbacks.find(f => f.id === id);
-    if (!item) return;
+    const contentDiv = document.getElementById(`content-${id}`);
+    if (!contentDiv) return;
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = item.html;
-    const imgEl = tempDiv.querySelector('img');
+    // Clona o nó HTML para processar as imagens Base64 em URLs Blob temporárias
+    const clone = contentDiv.cloneNode(true);
+    const imgs = clone.querySelectorAll('img');
+
+    imgs.forEach(img => {
+      if (img.src && img.src.startsWith('data:image')) {
+        const blob = base64ToBlob(img.src);
+        img.src = URL.createObjectURL(blob);
+      }
+    });
+
+    const htmlContent = clone.innerHTML;
+    const textContent = clone.innerText.trim();
 
     try {
-      if (imgEl && imgEl.src.startsWith('data:image')) {
-        // Converte a imagem Base64 em arquivo binário PNG nativo na área de transferência
-        const imageBlob = base64ToBlob(imgEl.src, 'image/png');
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'image/png': imageBlob
-          })
-        ]);
-        alert("Imagem copiada para a área de transferência! Cole no Notion (Ctrl+V) e em seguida copie o texto do texto.");
-      } else {
-        const blobHtml = new Blob([item.html], { type: 'text/html' });
-        const blobText = new Blob([item.texto], { type: 'text/plain' });
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'text/html': blobHtml,
-            'text/plain': blobText
-          })
-        ]);
-        alert("Conteúdo copiado! Cole direto no Notion (Ctrl+V).");
-      }
+      const blobHtml = new Blob([htmlContent], { type: 'text/html' });
+      const blobText = new Blob([textContent], { type: 'text/plain' });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': blobHtml,
+          'text/plain': blobText
+        })
+      ]);
+
+      alert("Texto e imagem copiados com sucesso! Pressione Ctrl+V direto no Notion.");
     } catch (err) {
       console.error(err);
-      alert("Erro ao copiar o conteúdo para a área de transferência.");
+      alert("Erro ao copiar o conteúdo completo para o Notion.");
     }
   }
 

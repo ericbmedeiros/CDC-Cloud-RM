@@ -51,7 +51,7 @@
       align-items: center;
     }
 
-    input[type="search"] { 
+    input[type="text"].search-box { 
       width: 100%; 
       background: var(--card); 
       color: var(--text); 
@@ -60,13 +60,6 @@
       padding: 12px 38px 12px 14px; 
       outline: none; 
       font-size: 15px; 
-    }
-
-    input[type="search"]::-webkit-search-decoration,
-    input[type="search"]::-webkit-search-cancel-button,
-    input[type="search"]::-webkit-search-results-button,
-    input[type="search"]::-webkit-search-results-decoration {
-      display: none;
     }
 
     .btn-clear-search {
@@ -347,7 +340,7 @@
     </div>
     <div class="searchRow">
       <div class="search-input-wrapper">
-        <input id="q" type="search" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
+        <input id="q" type="text" class="search-box" placeholder="Buscar por erro, banco de dados, parâmetro... ou cole (Ctrl+V) um print" autocomplete="off" />
         <button type="button" class="btn-clear-search" id="btnClearSearch" title="Limpar busca">&times;</button>
       </div>
       <button class="btn-action" onclick="document.getElementById('fileInput').click()">
@@ -525,7 +518,7 @@
 
       let score = 0;
 
-      // PONTUAÇÃO MÁXIMA ABSOLUTA SE AS PALAVRAS PRINCIPAIS CASAREM COM O TÍTULO
+      // PONTUAÇÃO MÁXIMA ABSOLUTA QUANDO PALAVRAS DO OCR COINCIDEM COM O TÍTULO
       let titleMatchedWords = 0;
       for (const word of queryWords) {
         if (d.cleanTitle.includes(word)) {
@@ -534,12 +527,18 @@
       }
 
       const ratioTitle = titleMatchedWords / queryWords.length;
-      if (ratioTitle >= 0.4) {
-        score += ratioTitle * 50000000;
+      if (ratioTitle >= 0.3) {
+        score += Math.pow(titleMatchedWords, 4) * 5000000;
       }
 
-      if (cleanQ.length > 5 && d.cleanTitle.includes(cleanQ)) {
-        score += 100000000;
+      // Sequência de 3+ palavras no título
+      if (queryWords.length >= 3) {
+        for (let i = 0; i <= queryWords.length - 3; i++) {
+          const trio = queryWords.slice(i, i + 3).join(' ');
+          if (d.cleanTitle.includes(trio)) {
+            score += 100000000;
+          }
+        }
       }
 
       // CORPO DO TEXTO
@@ -803,17 +802,14 @@
       });
     }
 
-    btnClearSearch.onclick = function(e) {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+    // Ação do Botão X de Limpeza sem Recarregar
+    btnClearSearch.addEventListener('click', function(e) {
+      e.preventDefault();
       q.value = '';
       btnClearSearch.style.display = 'none';
       render();
       q.focus();
-      return false;
-    };
+    });
 
     q.addEventListener('input', render);
     count.textContent = `${DOCS.length} documentações carregadas.`;
@@ -952,11 +948,11 @@
     try {
       const clone = contentDiv.cloneNode(true);
 
-      // Substitui imagens por marcadores de espacamento limpos
+      // Substitui imagens pela tag simplificada [ Imagem ]
       const imgs = clone.querySelectorAll('img');
       imgs.forEach(img => {
         const marker = document.createElement('div');
-        marker.textContent = '\n\n[ Print / Imagem ]\n\n';
+        marker.textContent = '\n\n[ Imagem ]\n\n';
         img.replaceWith(marker);
       });
 
@@ -974,7 +970,7 @@
         .trim();
 
       await navigator.clipboard.writeText(textoLimpo);
-      alert("✅ Texto e espacamentos de imagem copiados com sucesso! Pressione Ctrl+V no Notion.");
+      alert("✅ Texto e marcadores de imagem copiados! Pressione Ctrl+V no Notion.");
     } catch (err) {
       console.error(err);
       alert("Erro ao copiar o texto.");
